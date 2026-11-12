@@ -74,16 +74,26 @@ def apply() -> None:
     )
 
 
-def titles(fig, title: str, subtitle: str, *, source: str | None = None) -> None:
+def titles(
+    fig,
+    title: str,
+    subtitle: str,
+    *,
+    source: str | None = None,
+    top_pad: float = 0.0,
+    bottom_pad: float = 0.0,
+) -> None:
     """Título + subtítulo alinhados à esquerda e fonte no rodapé (padrão de todas as figuras)."""
     h = fig.get_figheight()  # deslocamentos em polegadas: mesmo respiro em qualquer altura
     top = max(ax.get_position().y1 for ax in fig.axes)
     bottom = min(ax.get_position().y0 for ax in fig.axes)
     base = top + (0.42 if any(ax.get_title(loc="left") for ax in fig.axes) else 0.18) / h
+    base += top_pad / h
     fig.text(0.0, base, subtitle, fontsize=9.5, color=INK_SECONDARY, ha="left", va="bottom")
     fig.text(
         0.0, base + 0.24 / h, title, fontsize=13, fontweight="semibold", color=INK,
         ha="left", va="bottom",
     )  # fmt: skip
     if source:
-        fig.text(0.0, bottom - 0.62 / h, source, fontsize=7.5, color=INK_MUTED, ha="left", va="top")
+        y = bottom - (0.62 + bottom_pad) / h
+        fig.text(0.0, y, source, fontsize=7.5, color=INK_MUTED, ha="left", va="top")

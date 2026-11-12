@@ -16,8 +16,21 @@ from dengue_forecast import backtest
 from dengue_forecast.viz import style
 
 SOURCE = "Backtest por origem móvel, temporadas 2022-23 a 2025-26. Elaboração própria."
-MODEL_LABELS = {"naive": "Ingênuo", "seasonal": "Sazonal", "climatology": "Histórico por SE"}
-MODEL_COLORS = dict(zip(MODEL_LABELS, style.CATEGORICAL, strict=False))
+MODEL_LABELS = {
+    "naive": "Ingênuo",
+    "seasonal": "Sazonal",
+    "climatology": "Histórico por SE",
+    "naive_level": "Ingênuo por nível",
+    "lgbm": "LightGBM",
+}
+# Cor por modelo, fixa em todas as figuras e no site.
+MODEL_COLORS = {
+    "naive": style.CATEGORICAL[0],
+    "seasonal": style.CATEGORICAL[1],
+    "climatology": style.CATEGORICAL[2],
+    "naive_level": style.CATEGORICAL[3],
+    "lgbm": style.CATEGORICAL[6],
+}
 
 
 def _season_label(season: int) -> str:
