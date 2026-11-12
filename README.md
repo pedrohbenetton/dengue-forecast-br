@@ -7,7 +7,8 @@ intervalos calibrados e avaliação temporal honesta. Especificação completa e
 avaliação e [baselines](reports/fase1.md). Este README vira um paper curto ao final (fase 7).
 
 Resultado até aqui: a persistência (repetir a última semana) é o baseline a bater. O histórico
-por semana só a alcança em 8 semanas, e só nos municípios pequenos.
+por semana só empata com ela em 8 semanas, e só vence nos municípios com menos de 20 mil
+habitantes.
 
 ![2024 foi o maior ano de dengue da série](reports/figures/eda_ano_recorde.png)
 
