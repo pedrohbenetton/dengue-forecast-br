@@ -82,3 +82,15 @@ def test_feature_groups_and_importance(toy_data, toy_adjacency):
     assert "nb0" not in importance
     assert sum(importance.values()) == pytest.approx(1.0)
     assert list(importance.values()) == sorted(importance.values(), reverse=True)
+
+
+def test_tune_evaluates_each_config(toy_data, toy_adjacency):
+    from dengue_forecast import tune
+
+    configs = {"a": FAST, "b": {**FAST, "n_estimators": 5}}
+    table = tune.evaluate(
+        toy_data, toy_adjacency, configs, season=2023, horizons=(1, 8), log=lambda s: None
+    )
+    assert table["config"].tolist() == ["a", "a", "b", "b"]
+    assert table["horizon"].tolist() == [1, 8, 1, 8]
+    assert (table["wis"] > 0).all()

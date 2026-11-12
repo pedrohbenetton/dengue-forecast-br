@@ -26,6 +26,14 @@ DEFAULT_PARAMS = {
     "verbose": -1,
 }
 
+# Variantes para a ablação: cada uma acrescenta um grupo de features à anterior.
+VARIANTS = {
+    "lgbm_own": ("own", "static"),
+    "lgbm_season": ("own", "static", "season"),
+    "lgbm_nb": ("own", "static", "season", "neighbors"),
+    "lgbm": GROUPS,
+}
+
 
 class LGBMQuantile:
     def __init__(

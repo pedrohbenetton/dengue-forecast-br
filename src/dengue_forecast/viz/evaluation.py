@@ -149,10 +149,12 @@ def make_all(scored: pd.DataFrame, out_dir: Path | str) -> list[Path]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--scored", default="data/forecasts/scored.parquet")
+    parser.add_argument("--forecast-dir", default="data/forecasts")
+    parser.add_argument("--models", default="naive,seasonal,climatology")
     parser.add_argument("--out-dir", default="reports/figures")
     args = parser.parse_args(argv)
-    for path in make_all(pd.read_parquet(args.scored), args.out_dir):
+    scored = backtest.load_scored(args.forecast_dir, args.models.split(","))
+    for path in make_all(scored, args.out_dir):
         print(path)
     return 0
 
