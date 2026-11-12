@@ -166,7 +166,7 @@ def plot_fan(
         ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _p: f"{v:,.0f}".replace(",", ".")))
         ax.set_title(name, color=style.INK_SECONDARY)
         ax.margins(x=0.01)
-    axes[0].legend(loc="upper left", ncols=2)
+    axes[0].legend(loc="upper left", ncols=1, fontsize=8)
     axes[-1].xaxis.set_major_locator(mdates.MonthLocator(interval=2))
     axes[-1].xaxis.set_major_formatter(FuncFormatter(_month_tick))
     axes[-1].set_xlabel("Linhas tracejadas: semana em que a previsão foi emitida")
@@ -209,7 +209,7 @@ def plot_ablation(scored: pd.DataFrame, reference: str) -> Figure:
     np.atleast_1d(axes)[0].set_xlabel(f"WIS relativo ao {MODEL_LABELS[reference].lower()}")
     style.titles(
         fig,
-        "O que cada grupo de features acrescenta",
+        "A sazonalidade traz o maior ganho; vizinhos e clima, quase nada",
         "Ablação cumulativa do LightGBM (cada linha soma um grupo à anterior)",
         source=SOURCE,
     )
