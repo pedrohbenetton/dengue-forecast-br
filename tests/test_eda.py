@@ -2,7 +2,6 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import numpy as np
 import pandas as pd
 import pytest
 from matplotlib.figure import Figure
@@ -51,8 +50,8 @@ def test_seasonal_profile(toy):
     out = eda.seasonal_profile(toy)
     se = out[out["region"] == "Sudeste"].set_index("week")["incidence_100k"]
     assert len(se) == 52
-    # semana 10: casos 20, 20, 60 -> média 33,33 por 200 mil hab.
-    assert se.loc[10] == pytest.approx(np.mean([20, 20, 60]) / 200_000 * 1e5)
+    # semana 10: casos 20, 20, 60 -> mediana 20 por 200 mil hab. (2024 não domina)
+    assert se.loc[10] == pytest.approx(20 / 200_000 * 1e5)
     assert se.idxmax() == 10
     assert (out[out["region"] == "Norte"]["incidence_100k"] == 0).all()
 

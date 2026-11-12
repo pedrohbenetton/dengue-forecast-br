@@ -36,7 +36,10 @@ def zero_share_by_band(panel: pd.DataFrame) -> pd.DataFrame:
 
 
 def seasonal_profile(panel: pd.DataFrame) -> pd.DataFrame:
-    """Incidência semanal média (por 100 mil hab.) por região e SE, média entre os anos."""
+    """Incidência semanal típica (por 100 mil hab.) por região e SE: mediana entre os anos.
+
+    Mediana, e não média, para que 2024 sozinho não defina o perfil.
+    """
     by_week = (
         panel[panel["week"] <= 52]
         .groupby(["region", "year", "week"], observed=True)[["cases", "population"]]
@@ -44,7 +47,8 @@ def seasonal_profile(panel: pd.DataFrame) -> pd.DataFrame:
         .astype("float64")
     )
     by_week["incidence_100k"] = by_week["cases"] / by_week["population"] * 1e5
-    return by_week.groupby(["region", "week"], observed=True)["incidence_100k"].mean().reset_index()
+    typical = by_week.groupby(["region", "week"], observed=True)["incidence_100k"].median()
+    return typical.reset_index()
 
 
 def season_position(week: pd.Series) -> pd.Series:
@@ -138,29 +142,28 @@ def plot_seasonality(panel: pd.DataFrame) -> Figure:
     data["pos"] = season_position(data["week"])
     fig, ax = plt.subplots(figsize=(7.6, 4.0))
     regions = [r for r in style.REGION_COLORS if r in set(data["region"].astype(str))]
-    ends = []
     for region in regions:
         d = data[data["region"] == region].sort_values("pos")
         ax.plot(d["pos"], d["incidence_100k"], color=style.REGION_COLORS[region], label=region)
-        peak = d.loc[d["incidence_100k"].idxmax()]
-        ends.append((region, peak["pos"], peak["incidence_100k"]))
-    for region, x, yv in ends:  # rótulo direto no pico de cada série
-        ax.annotate(
-            region, (x, yv), xytext=(0, 6), textcoords="offset points",
-            ha="center", va="bottom", fontsize=8.5, color=style.INK,
-        )  # fmt: skip
+    turn = 11.5  # entre a SE 52 e a SE 1
+    ax.axvline(turn, color=style.AXIS, lw=0.8, ls=(0, (3, 3)), zorder=0)
+    ax.annotate(
+        "virada do ano:\ndegrau na fonte", (turn, 1.0), xycoords=("data", "axes fraction"),
+        xytext=(-5, -2), textcoords="offset points", ha="right", va="top",
+        fontsize=7.5, color=style.INK_MUTED,
+    )  # fmt: skip
     ax.set_xlim(0, 51)
     ax.set_ylim(bottom=0)
     ax.set_xticks(np.arange(12) * 52 / 12)
     ax.set_xticklabels(_MONTHS)
     ax.set_xlabel("Temporada epidemiológica (SE 41 a SE 40)")
     ax.set_ylabel("Casos por 100 mil hab. por semana")
-    ax.legend(loc="upper left", ncols=1, handlelength=1.4)
+    ax.legend(loc="upper right", ncols=1, handlelength=1.4)
     first, last = int(panel["year"].min()), int(panel["year"].max())
     style.titles(
         fig,
-        "A temporada começa na primavera e atinge o pico entre março e maio",
-        f"Incidência semanal média por região, {first}–{last}",
+        "A temporada começa na primavera e atinge o pico entre fevereiro e maio",
+        f"Incidência semanal por região, mediana dos anos {first}–{last}",
         source=SOURCE,
     )
     return fig
