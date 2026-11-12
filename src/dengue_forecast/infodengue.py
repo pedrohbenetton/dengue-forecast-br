@@ -138,18 +138,31 @@ def download_city(
     start_year: int,
     end_year: int,
     overwrite: bool = False,
+    refresh_from_year: int | None = None,
     retries: int = 3,
     backoff: float = 1.0,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Path:
-    """Baixa um município para `{out_dir}/{geocode}.parquet`; pula se o arquivo já existir."""
-    path = Path(out_dir) / f"{int(geocode)}.parquet"
-    if path.exists() and not overwrite:
-        return path
+    """Baixa um município para `{out_dir}/{geocode}.parquet`.
 
-    url = build_url(geocode, start_year=start_year, end_year=end_year)
+    Se o arquivo já existir: pula (padrão); rebaixa tudo (`overwrite`); ou rebaixa só de
+    `refresh_from_year` em diante e mescla com o cache (refresh incremental — as revisões por
+    atraso de notificação se concentram nas semanas recentes).
+    """
+    path = Path(out_dir) / f"{int(geocode)}.parquet"
+    cached = path.exists() and not overwrite
+    if cached and refresh_from_year is None:
+        return path
+    incremental = cached and refresh_from_year is not None and refresh_from_year > start_year
+
+    first_year = refresh_from_year if incremental else start_year
+    url = build_url(geocode, start_year=first_year, end_year=end_year)
     response = get_with_retry(client, url, retries=retries, backoff=backoff, sleep=sleep)
     df = parse_csv(response.text, geocode)
+    if incremental:
+        old = pd.read_parquet(path)
+        old = old[old["epiweek"] < refresh_from_year * 100]
+        df = pd.concat([old, df], ignore_index=True) if len(old) else df
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".parquet.tmp")  # escrita atômica: nada de parquet pela metade
@@ -173,6 +186,7 @@ def download_all(
     client: httpx.Client | None = None,
     max_workers: int = MAX_WORKERS,
     overwrite: bool = False,
+    refresh_from_year: int | None = None,
     retries: int = 3,
     backoff: float = 1.0,
     sleep: Callable[[float], None] = time.sleep,
@@ -195,6 +209,7 @@ def download_all(
                 start_year=start_year,
                 end_year=end_year,
                 overwrite=overwrite,
+                refresh_from_year=refresh_from_year,
                 retries=retries,
                 backoff=backoff,
                 sleep=sleep,

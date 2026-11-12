@@ -211,3 +211,43 @@ def test_download_all_caps_concurrency():
     assert infodengue.MAX_WORKERS == 4
     with pytest.raises(ValueError):
         infodengue.download_all([GEOCODE], "x", start_year=2024, end_year=2024, max_workers=5)
+
+
+def test_download_city_incremental_refresh_merges_with_cache(tmp_path, infodengue_csv):
+    header, *rows = infodengue_csv.strip().splitlines()  # linhas: SE 202408 ... 202401
+    old_2023 = [r.replace("2024-", "2023-", 1).replace(",2024", ",2023", 1) for r in rows[:2]]
+    cached_text = "\n".join([header, *rows[4:], *old_2023])  # 2024 SE 1-4 + 2023 SE 7-8
+    requests = []
+
+    def handler(request):
+        requests.append(dict(request.url.params))
+        text = cached_text if len(requests) == 1 else infodengue_csv
+        return httpx.Response(200, text=text)
+
+    with _client(handler) as client:
+        infodengue.download_city(GEOCODE, tmp_path, client=client, start_year=2023, end_year=2024)
+        path = infodengue.download_city(
+            GEOCODE, tmp_path, client=client, start_year=2023, end_year=2024,
+            refresh_from_year=2024,
+        )
+
+    assert requests[1]["ey_start"] == "2024"  # só a janela recente é rebaixada
+    df = pd.read_parquet(path)
+    assert df["epiweek"].tolist() == [202307, 202308, *range(202401, 202409)]
+    assert df["epiweek"].is_unique
+    assert df["cases"].dtype == "Int64"
+
+
+def test_download_city_refresh_without_cache_downloads_full_range(tmp_path, infodengue_csv):
+    requests = []
+
+    def handler(request):
+        requests.append(dict(request.url.params))
+        return httpx.Response(200, text=infodengue_csv)
+
+    with _client(handler) as client:
+        infodengue.download_city(
+            GEOCODE, tmp_path, client=client, start_year=2010, end_year=2024,
+            refresh_from_year=2024,
+        )
+    assert requests[0]["ey_start"] == "2010"
