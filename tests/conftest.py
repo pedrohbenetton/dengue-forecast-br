@@ -36,4 +36,19 @@ def toy_data() -> PanelData:
         population=np.repeat(pop[:, None], len(weeks), axis=1),
         band=np.array([0, 1, 2, 3, 4, 4], dtype=np.int8),
         region=np.array(["Norte", "Norte", "Sul", "Sul", "Sudeste", "Sudeste"]),
+        extras={
+            "temp_mean": 24 + 4 * season + rng.normal(0, 1, (6, len(weeks))),
+            "temp_min": 18 + 4 * season + rng.normal(0, 1, (6, len(weeks))),
+            "humid_mean": 70 + rng.normal(0, 5, (6, len(weeks))),
+        },
     )
+
+
+@pytest.fixture
+def toy_adjacency(toy_data):
+    """Vizinhança em anel entre os 6 municípios sintéticos."""
+    from dengue_forecast import geo
+
+    codes = [int(c) for c in toy_data.geocodes]
+    ring = {c: [codes[i - 1], codes[(i + 1) % len(codes)]] for i, c in enumerate(codes)}
+    return geo.adjacency_matrix(toy_data.geocodes, ring)

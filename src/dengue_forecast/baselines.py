@@ -116,4 +116,48 @@ class Climatology:
         return np.stack(out, axis=1)
 
 
-ALL = {m.name: m for m in (Naive, SeasonalNaive, Climatology)}
+LEVEL_EDGES = np.array([1, 3, 6, 11, 26, 51, 101, 501])  # 0 | 1-2 | 3-5 | ... | 101-500 | 501+
+
+
+def level_bin(cases: np.ndarray) -> np.ndarray:
+    """Faixa do nível recente de casos (0 = zero casos, 8 = mais de 500)."""
+    return np.digitize(cases, LEVEL_EDGES)
+
+
+class NaiveLevel:
+    """Persistência com incerteza condicionada ao nível: os erros históricos em escala log são
+    agrupados pelo número de casos na origem (e pelo horizonte), não pelo porte do município.
+
+    Um município grande em semana de zero casos e outro em pleno surto têm erros de persistência
+    muito diferentes; esta versão captura isso.
+    """
+
+    name = "naive_level"
+
+    def __init__(self, horizons=HORIZONS):
+        self.horizons = tuple(horizons)
+        self.resid: dict[int, np.ndarray] | None = None
+
+    def fit(self, data: PanelData) -> None:
+        log = np.log1p(data.cases)
+        n_bins = len(LEVEL_EDGES) + 1
+        self.resid = {}
+        for h in self.horizons:
+            errors = log[:, h:] - log[:, :-h]
+            bins = level_bin(data.cases[:, :-h])
+            table = np.zeros((n_bins, len(QUANTILES)))
+            for b in range(n_bins):
+                values = errors[bins == b]
+                if values.size:
+                    table[b] = np.quantile(values, QUANTILES)
+            self.resid[h] = table
+
+    def predict(self, data: PanelData, horizons) -> np.ndarray:
+        if self.resid is None:
+            raise RuntimeError("chame fit() antes de predict()")
+        last = data.cases[:, -1]
+        bins = level_bin(last)
+        return np.stack([_apply(last, self.resid[h][bins]) for h in horizons], axis=1)
+
+
+ALL = {m.name: m for m in (Naive, NaiveLevel, SeasonalNaive, Climatology)}

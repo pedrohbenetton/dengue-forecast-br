@@ -1,6 +1,6 @@
 """Painel em forma de matriz (município × semana), a estrutura que os modelos consomem."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,7 @@ class PanelData:
     population: np.ndarray  # [n_geo, n_weeks], float
     band: np.ndarray  # [n_geo], código da faixa de população (índice em POP_LABELS)
     region: np.ndarray  # [n_geo], str
+    extras: dict[str, np.ndarray] = field(default_factory=dict)  # nome -> [n_geo, n_weeks]
 
     def __post_init__(self) -> None:
         if (np.diff(epiweek.to_index(self.epiweeks)) != 1).any():
@@ -41,14 +42,31 @@ class PanelData:
             epiweeks=self.epiweeks[:end],
             cases=self.cases[:, :end],
             population=self.population[:, :end],
+            extras={k: v[:, :end] for k, v in self.extras.items()},
         )
+
+    def tail(self, n: int) -> "PanelData":
+        """Cópia com apenas as últimas `n` semanas (para montar features da origem mais recente)."""
+        start = max(self.n_weeks - n, 0)
+        return replace(
+            self,
+            epiweeks=self.epiweeks[start:],
+            cases=self.cases[:, start:],
+            population=self.population[:, start:],
+            extras={k: v[:, start:] for k, v in self.extras.items()},
+        )
+
+    @property
+    def uf(self) -> np.ndarray:
+        """Código IBGE da UF de cada município (dois primeiros dígitos do geocode)."""
+        return (self.geocodes // 100_000).astype(np.int32)
 
     def season_positions(self, season: int) -> np.ndarray:
         """Colunas das semanas-alvo da temporada (SE 41 de season-1 até SE 40 de season)."""
         return np.flatnonzero(season_of(pd.Series(self.epiweeks)).to_numpy() == season)
 
     @classmethod
-    def from_panel(cls, panel: pd.DataFrame) -> "PanelData":
+    def from_panel(cls, panel: pd.DataFrame, extras: tuple[str, ...] = ()) -> "PanelData":
         df = panel.sort_values(["geocode", "epiweek"], kind="stable")
         geocodes = df["geocode"].unique()
         weeks = np.sort(df["epiweek"].unique())
@@ -65,4 +83,5 @@ class PanelData:
             population=df["population"].to_numpy(dtype=float).reshape(shape),
             band=pd.Categorical(static["pop_band"].astype(str), categories=POP_LABELS).codes,
             region=static["region"].astype(str).to_numpy(),
+            extras={c: df[c].to_numpy(dtype=float).reshape(shape) for c in extras},
         )
