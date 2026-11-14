@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dengue Forecast BR — Previsão Probabilística Municipal</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Cabeçalho Principal -->
+      <header class="app-header">
+        <div class="header-left">
+          <div class="logo-area">
+            <span class="status-indicator live"></span>
+            <h1>Dengue Forecast BR</h1>
+          </div>
+          <p class="subtitle">
+            Previsão probabilística semanal de casos para os 5.570 municípios do Brasil com intervalos calibrados (CQR/ACI).
+          </p>
+        </div>
+        <div class="header-right">
+          <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="map-view">Mapa Interativo</button>
+            <button class="nav-tab" data-tab="benchmarks-view">Avaliação & Benchmark</button>
+            <button class="nav-tab" data-tab="methodology-view">Metodologia</button>
+          </div>
+          <a
+            href="https://github.com/pedrohbenetton/dengue-forecast-br"
+            target="_blank"
+            class="github-link"
+            title="Ver no GitHub"
+          >
+            GitHub
+          </a>
+        </div>
+      </header>
+
+      <!-- Conteúdo Principal -->
+      <main class="app-main">
+        <!-- Aba 1: Mapa e Exploração Temporal -->
+        <section id="map-view" class="tab-content active">
+          <!-- Barra de Controles do Mapa -->
+          <div class="map-controls-panel">
+            <div class="control-group">
+              <label class="control-label">Métrica Visualizada:</label>
+              <div class="metric-selector">
+                <button class="btn-toggle active" data-metric="cases">Casos Observados</button>
+                <button class="btn-toggle" data-metric="q50">Previsão (Mediana)</button>
+                <button class="btn-toggle" data-metric="outbreak">Risco de Surto (>300/100k)</button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">Horizonte de Previsão:</label>
+              <div class="horizon-selector">
+                <button class="btn-pill active" data-horizon="1">1 sem</button>
+                <button class="btn-pill" data-horizon="2">2 sem</button>
+                <button class="btn-pill" data-horizon="4">4 sem</button>
+                <button class="btn-pill" data-horizon="8">8 sem</button>
+              </div>
+            </div>
+
+            <div class="control-group search-group">
+              <label class="control-label">Buscar Município:</label>
+              <input
+                type="text"
+                id="search-input"
+                class="search-input"
+                placeholder="Ex: São Paulo, Campinas, 3550308..."
+                autocomplete="off"
+              />
+              <div id="search-results" class="search-results hidden"></div>
+            </div>
+          </div>
+
+          <!-- Container do Mapa e Barra Temporal -->
+          <div class="map-wrapper">
+            <div id="map-container" class="map-container"></div>
+
+            <!-- Legenda Dinâmica -->
+            <div class="map-legend">
+              <h4 id="legend-title">Incidência (casos por 100 mil)</h4>
+              <div class="legend-scale">
+                <div class="legend-bar"></div>
+                <div class="legend-labels">
+                  <span>0</span>
+                  <span>50</span>
+                  <span>100</span>
+                  <span>300+</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slider Temporal Flutuante -->
+            <div class="timeline-slider-bar">
+              <button id="btn-play-timeline" class="btn-play" title="Reproduzir Animação">
+                ▶
+              </button>
+              <div class="timeline-info">
+                <span class="timeline-label">Semana Epidemiológica:</span>
+                <span id="current-epiweek" class="timeline-current">2024-01</span>
+              </div>
+              <input
+                type="range"
+                id="timeline-range"
+                class="timeline-range"
+                min="0"
+                max="51"
+                value="0"
+                step="1"
+              />
+            </div>
+          </div>
+
+          <!-- Drawer Lateral: Detalhes e Fan Chart do Município -->
+          <aside id="municipality-drawer" class="municipality-drawer">
+            <div class="drawer-header">
+              <div>
+                <h3 id="drawer-muni-name">São Paulo — SP</h3>
+                <span id="drawer-muni-meta" class="drawer-meta">Geocode: 3550308 | Pop: 11,4M</span>
+              </div>
+              <button id="btn-close-drawer" class="btn-close">&times;</button>
+            </div>
+            <div class="drawer-body">
+              <div class="drawer-kpi-grid">
+                <div class="kpi-card">
+                  <span class="kpi-label">Casos Recentes</span>
+                  <span id="drawer-kpi-cases" class="kpi-value">1.450</span>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Previsão h=4 (mediana)</span>
+                  <span id="drawer-kpi-pred" class="kpi-value">2.180</span>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">P(Surto > 300/100k)</span>
+                  <span id="drawer-kpi-outbreak" class="kpi-value alert">34%</span>
+                </div>
+              </div>
+
+              <!-- Fan Chart Interativo -->
+              <div class="chart-section">
+                <h4>Intervalos de Previsão Calibrados (Fan Chart)</h4>
+                <p class="chart-desc">
+                  Leques representam 50%, 80%, 90% e 95% de incerteza calibrados via Conformal Prediction (CQR/ACI).
+                </p>
+                <div id="fanchart-container" class="fanchart-container">
+                  <svg id="fanchart-svg" viewBox="0 0 500 240"></svg>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <!-- Aba 2: Avaliação & Benchmark -->
+        <section id="benchmarks-view" class="tab-content">
+          <div class="evaluation-container">
+            <div class="eval-header">
+              <h2>Avaliação Temporal Honesta (4 Temporadas de Teste)</h2>
+              <p>
+                Comparação rigorosa em 5.570 municípios brasileiros por origem móvel (rolling origin), sem vazamento de dados futuros.
+              </p>
+            </div>
+
+            <!-- Tabela Comparativa de Modelos -->
+            <div class="eval-table-card">
+              <h3>Desempenho por Horizonte (WIS Relativo ao Baseline)</h3>
+              <div class="table-responsive">
+                <table class="benchmark-table">
+                  <thead>
+                    <tr>
+                      <th>Modelo</th>
+                      <th>WIS h=1</th>
+                      <th>WIS h=2</th>
+                      <th>WIS h=4</th>
+                      <th>WIS h=8</th>
+                      <th>Cobertura 90%</th>
+                      <th>PR-AUC Surto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="benchmark-table-body">
+                    <!-- Preenchido via script -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Destaques dos Resultados -->
+            <div class="results-grid">
+              <div class="result-highlight-card">
+                <div class="result-number">14% a 25%</div>
+                <div class="result-title">Redução de WIS</div>
+                <p>O LightGBM global quantílico supera o melhor baseline em todos os horizontes e nas 27 UFs.</p>
+              </div>
+              <div class="result-highlight-card">
+                <div class="result-number">0,43 vs 0,23</div>
+                <div class="result-title">PR-AUC de Surto em h=8</div>
+                <p>Capacidade de alerta antecipado para surtos graves quase dobra em relação ao baseline de persistência.</p>
+              </div>
+              <div class="result-highlight-card">
+                <div class="result-number">Calibração Exata</div>
+                <div class="result-title">Conformal Prediction CQR/ACI</div>
+                <p>Intervalos corrigidos garantem cobertura estrita mesmo durante o surto recorde histórico de 2024.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Aba 3: Metodologia & Paper -->
+        <section id="methodology-view" class="tab-content">
+          <div class="methodology-container">
+            <h2>Metodologia e Princípios Científicos</h2>
+            <article class="paper-summary">
+              <h3>1. O Desafio em Nível Municipal</h3>
+              <p>
+                Enquanto iniciativas anteriores focavam em previsões agregadas por estado (IMDC/Mosqlimate),
+                este projeto resolve a previsão semanal individualizada para os ~5.570 municípios do Brasil.
+                Isso traz grandes desafios: a maioria dos municípios é pequena e possui semanas zeradas frequentes,
+                intercaladas por explosões epidêmicas repentinas.
+              </p>
+
+              <h3>2. Protocolo Anti-Vazamento Estrito</h3>
+              <p>
+                Toda feature disponível na semana de origem <em>t</em> utiliza unicamente dados observados até a semana <em>t</em>.
+                Isso inclui lags de casos próprios, médias móveis, dados climáticos (temperatura/umidade) defasados e casos em municípios vizinhos.
+                O modelo nunca tem acesso a dados climáticos futuros observados na semana-alvo.
+              </p>
+
+              <h3>3. Calibração Conformal (CQR & ACI)</h3>
+              <p>
+                Modelos quantílicos padrão sofrem distorções de cobertura sob quebras de regime (como o ano atípico de 2024).
+                A camada Conformal Quantile Regression (CQR) e Adaptive Conformal Inference (ACI) ajusta as margens de incerteza
+                de forma dinâmica preservando a mediana e garantindo cobertura empírica honesta.
+              </p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
