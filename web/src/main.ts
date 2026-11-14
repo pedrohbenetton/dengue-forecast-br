@@ -38,7 +38,16 @@ const DEFAULT_BENCHMARKS: BenchmarkRow[] = [
     pr_auc: "0,434",
   },
   {
-    model: "LightGBM + CQR Estático",
+    model: "LightGBM + Dívida Imunológica (Fase 6)",
+    h1: "1,79 (0,85×)",
+    h2: "2,51 (0,79×)",
+    h4: "3,81 (0,74×)",
+    h8: "6,40 (0,74×)",
+    cov90: "92,1%",
+    pr_auc: "0,441",
+  },
+  {
+    model: "LightGBM + CQR Estático (Fase 3)",
     h1: "1,78 (0,85×)",
     h2: "2,50 (0,79×)",
     h4: "3,80 (0,74×)",
@@ -47,7 +56,7 @@ const DEFAULT_BENCHMARKS: BenchmarkRow[] = [
     pr_auc: "0,436",
   },
   {
-    model: "LightGBM + ACI Adaptativo",
+    model: "LightGBM + ACI Adaptativo (Fase 3)",
     h1: "1,77 (0,84×)",
     h2: "2,48 (0,78×)",
     h4: "3,79 (0,74×)",
