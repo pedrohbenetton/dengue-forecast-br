@@ -11,6 +11,7 @@ from scipy import sparse
 from dengue_forecast import epiweek
 from dengue_forecast.data import PanelData
 
+ALL_GROUPS = ("own", "season", "static", "neighbors", "climate", "immunity")
 GROUPS = ("own", "season", "static", "neighbors", "climate")
 CLIMATE = ("temp_mean", "temp_min", "humid_mean")
 SEASON_LAG = 52
@@ -48,11 +49,11 @@ class FeatureBuilder:
         adjacency: sparse.csr_matrix | None = None,
         groups: tuple[str, ...] = GROUPS,
     ):
-        unknown = set(groups) - set(GROUPS)
+        unknown = set(groups) - set(ALL_GROUPS)
         if unknown:
             raise ValueError(f"grupos de features desconhecidos: {sorted(unknown)}")
         self.data = data
-        self.groups = tuple(g for g in GROUPS if g in groups)
+        self.groups = tuple(g for g in ALL_GROUPS if g in groups)
         self.log = np.log1p(data.cases)
         self.base: dict[str, np.ndarray] = {}
         self.static: dict[str, np.ndarray] = {}
@@ -98,6 +99,25 @@ class FeatureBuilder:
                 smooth = _roll_mean(data.extras[name], 4)
                 for k in (0, 4, 8):
                     self.base[f"{name}_r4_l{k}"] = _lag(smooth, k)
+
+        if "immunity" in self.groups:
+            # Hipótese DENV-3 / Dívida Imunológica:
+            # Ausência prolongada de circulação após histórico endêmico acumula coortes suscetíveis.
+            # 1. Dívida imunológica de longo prazo: incidência média quinquenal (260 sem) menos a
+            #    bienal (104 sem).
+            self.base["immune_debt"] = _roll_mean(incidence, 260) - _roll_mean(incidence, 104)
+
+            # 2. Proporção de semanas silenciosas (casos < 1) nos últimos 3 anos (156 semanas).
+            quiet_mask = np.where(np.isnan(data.cases), np.nan, (data.cases < 1.0).astype(float))
+            self.base["quiet_ratio"] = _roll_mean(quiet_mask, 156)
+
+            # 3. Impulso de reemergência: contraste da série log com a média de 52 semanas.
+            self.base["reemergence_boost"] = self.log - _roll_mean(self.log, 52)
+
+            # 4. Déficit cumulativo da incidência recente contra a média histórica quinquenal:
+            self.base["susceptible_gap"] = np.maximum(
+                0.0, _roll_mean(incidence, 260) - _roll_mean(incidence, 52)
+            )
 
         self.season_names = (
             ["tw_sin", "tw_cos", "seas_ref", "seas_growth", "clim", "crosses_year"]

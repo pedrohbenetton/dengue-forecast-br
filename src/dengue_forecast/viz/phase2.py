@@ -28,9 +28,16 @@ VARIANT_LABELS = {
     "lgbm_season": "+ sazonalidade",
     "lgbm_nb": "+ vizinhos e UF",
     "lgbm": "+ clima (completo)",
+    "lgbm_immunity": "+ dívida imunológica",
 }
-FEATURE_GROUP = {"own": "Série própria", "season": "Sazonalidade", "static": "Estáticas",
-                 "neighbors": "Vizinhos e UF", "climate": "Clima"}  # fmt: skip
+FEATURE_GROUP = {
+    "own": "Série própria",
+    "season": "Sazonalidade",
+    "static": "Estáticas",
+    "neighbors": "Vizinhos e UF",
+    "climate": "Clima",
+    "immunity": "Dívida imunológica",
+}
 
 
 _MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
@@ -228,6 +235,8 @@ def feature_group(name: str) -> str:
         return "season"
     if name in {"logpop", "band", "uf"}:
         return "static"
+    if name in {"immune_debt", "quiet_ratio", "reemergence_boost", "susceptible_gap"}:
+        return "immunity"
     return "own"
 
 

@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from dengue_forecast import backtest
-from dengue_forecast.lgbm import LGBMQuantile
+from dengue_forecast.lgbm import VARIANTS, LGBMQuantile
 from dengue_forecast.metrics import QUANTILES
 
 FAST = dict(n_estimators=15, params={"num_leaves": 7, "min_data_in_leaf": 5, "num_threads": 1})
@@ -82,6 +82,23 @@ def test_feature_groups_and_importance(toy_data, toy_adjacency):
     assert "nb0" not in importance
     assert sum(importance.values()) == pytest.approx(1.0)
     assert list(importance.values()) == sorted(importance.values(), reverse=True)
+
+
+def test_lgbm_immunity_variant(toy_data, toy_adjacency):
+    assert "lgbm_immunity" in VARIANTS
+    model = _model(toy_adjacency, groups=VARIANTS["lgbm_immunity"], name="lgbm_immunity")
+    model.fit(toy_data.until(200))
+    assert model.name == "lgbm_immunity"
+    assert "immune_debt" in model.feature_names
+    assert "quiet_ratio" in model.feature_names
+    assert "reemergence_boost" in model.feature_names
+    assert "susceptible_gap" in model.feature_names
+    pred = model.predict(toy_data.until(220), (1, 4))
+    assert pred.shape == (6, 2, len(QUANTILES))
+    assert np.isfinite(pred).all() and (pred >= 0).all()
+    assert (np.diff(pred, axis=2) >= 0).all()
+    importance = model.importance()
+    assert "immune_debt" in importance
 
 
 def test_tune_evaluates_each_config(toy_data, toy_adjacency):

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from dengue_forecast.features import LOOKBACK, FeatureBuilder, _lag, _roll_mean
+from dengue_forecast.features import ALL_GROUPS, LOOKBACK, FeatureBuilder, _lag, _roll_mean
 
 
 def test_lag_and_rolling_mean():
@@ -89,3 +89,30 @@ def test_groups_select_features(toy_data, toy_adjacency):
         FeatureBuilder(toy_data, groups=("magic",))
     everything = FeatureBuilder(toy_data, toy_adjacency)
     assert {"temp_mean_r4_l8", "uf_rel", "crosses_year", "logpop"} <= set(everything.names)
+
+
+def test_immunity_features_and_properties(toy_data):
+    fb = FeatureBuilder(toy_data, groups=("immunity",))
+    expected = {"immune_debt", "quiet_ratio", "reemergence_boost", "susceptible_gap"}
+    assert set(fb.names) == expected
+    mat = fb.matrix(np.array([180, 200]), horizon=4)
+    assert mat.shape == (2 * 6, len(expected))
+    assert np.isfinite(mat).all()
+
+    idx_quiet = fb.names.index("quiet_ratio")
+    idx_gap = fb.names.index("susceptible_gap")
+    # Proporção de semanas silenciosas deve estar em [0, 1]
+    assert (mat[:, idx_quiet] >= 0.0).all() and (mat[:, idx_quiet] <= 1.0).all()
+    # Brecha de suscetibilidade é não-negativa por construção
+    assert (mat[:, idx_gap] >= 0.0).all()
+
+
+@pytest.mark.parametrize("horizon", [1, 8])
+def test_all_groups_including_immunity_are_causal(toy_data, toy_adjacency, horizon):
+    t = 230
+    full = FeatureBuilder(toy_data, toy_adjacency, groups=ALL_GROUPS).matrix([t], horizon)
+    truncated = toy_data.until(t)
+    cut = FeatureBuilder(truncated, toy_adjacency, groups=ALL_GROUPS).matrix(
+        [truncated.n_weeks - 1], horizon
+    )
+    np.testing.assert_array_equal(full, cut)

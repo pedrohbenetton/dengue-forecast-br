@@ -32,6 +32,7 @@ VARIANTS = {
     "lgbm_season": ("own", "static", "season"),
     "lgbm_nb": ("own", "static", "season", "neighbors"),
     "lgbm": GROUPS,
+    "lgbm_immunity": (*GROUPS, "immunity"),
 }
 
 
