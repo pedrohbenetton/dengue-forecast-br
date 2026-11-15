@@ -304,7 +304,7 @@ class App {
     });
   }
 
-  public openMunicipalityDrawer(muni: Municipality): void {
+  public async openMunicipalityDrawer(muni: Municipality): Promise<void> {
     const drawer = document.getElementById("municipality-drawer");
     const nameEl = document.getElementById("drawer-muni-name");
     const metaEl = document.getElementById("drawer-muni-meta");
@@ -313,8 +313,26 @@ class App {
 
     if (nameEl) nameEl.textContent = `${muni.name} — ${muni.uf}`;
     if (metaEl) {
-      const popStr = muni.population ? `Pop: ${(muni.population / 1e6).toFixed(1)}M` : `Região: ${muni.region}`;
+      const popStr = muni.population
+        ? `Pop: ${(muni.population / 1e6).toFixed(1)}M`
+        : `Região: ${muni.region}`;
       metaEl.textContent = `Geocode: ${muni.geocode} | ${popStr}`;
+    }
+
+    try {
+      const res = await fetch(`./data/fancharts/geo_${muni.geocode}.json`);
+      if (res.ok) {
+        const records = await res.json();
+        if (records && records.length > 0) {
+          if (casesEl) casesEl.textContent = Math.round(records[0].y).toLocaleString("pt-BR");
+          if (predEl) predEl.textContent = Math.round(records[0]["q0.5"]).toLocaleString("pt-BR");
+          this.renderRealFanChart(records);
+          drawer?.classList.add("open");
+          return;
+        }
+      }
+    } catch {
+      // Fallback para simulação abaixo
     }
 
     if (casesEl) casesEl.textContent = "1.840";
@@ -322,6 +340,65 @@ class App {
 
     this.renderFanChart(muni);
     drawer?.classList.add("open");
+  }
+
+  private renderRealFanChart(records: any[]): void {
+    const svg = document.getElementById("fanchart-svg") as SVGSVGElement | null;
+    if (!svg) return;
+
+    svg.innerHTML = "";
+    const w = 500;
+    const h = 240;
+    const pad = { top: 20, right: 30, bottom: 30, left: 50 };
+    const innerW = w - pad.left - pad.right;
+    const innerH = h - pad.top - pad.bottom;
+
+    const baseObs = records[0].y;
+    const weeksPred = [0, ...records.map((r: any) => r.horizon)];
+    const q50 = [baseObs, ...records.map((r: any) => r["q0.5"])];
+    const q05 = [baseObs, ...records.map((r: any) => r["q0.05"] || r["q0.025"])];
+    const q95 = [baseObs, ...records.map((r: any) => r["q0.95"] || r["q0.975"])];
+    const q25 = [baseObs, ...records.map((r: any) => r["q0.25"])];
+    const q75 = [baseObs, ...records.map((r: any) => r["q0.75"])];
+
+    const maxVal = Math.max(...q95, baseObs * 1.2) * 1.15;
+    const minW = 0;
+    const maxW = Math.max(...weeksPred);
+
+    const scaleX = (val: number) => pad.left + ((val - minW) / (maxW - minW || 1)) * innerW;
+    const scaleY = (val: number) => pad.top + innerH - (val / (maxVal || 1)) * innerH;
+
+    const makePolygon = (wArr: number[], loArr: number[], hiArr: number[], fill: string) => {
+      const ptsLo = wArr.map((wk, i) => `${scaleX(wk)},${scaleY(loArr[i])}`);
+      const ptsHi = wArr.map((wk, i) => `${scaleX(wk)},${scaleY(hiArr[i])}`).reverse();
+      const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      polygon.setAttribute("points", `${ptsLo.join(" ")} ${ptsHi.join(" ")}`);
+      polygon.setAttribute("fill", fill);
+      return polygon;
+    };
+
+    // 90% envelope
+    svg.appendChild(makePolygon(weeksPred, q05, q95, "rgba(42, 120, 214, 0.15)"));
+    // 50% envelope
+    svg.appendChild(makePolygon(weeksPred, q25, q75, "rgba(42, 120, 214, 0.28)"));
+
+    // Linha mediana de previsão
+    const predPts = weeksPred.map((wk, i) => `${scaleX(wk)},${scaleY(q50[i])}`).join(" ");
+    const predPoly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    predPoly.setAttribute("points", predPts);
+    predPoly.setAttribute("fill", "none");
+    predPoly.setAttribute("stroke", "#2a78d6");
+    predPoly.setAttribute("stroke-width", "2.2");
+    predPoly.setAttribute("stroke-dasharray", "4,3");
+    svg.appendChild(predPoly);
+
+    // Ponto de origem
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", scaleX(0).toString());
+    circle.setAttribute("cy", scaleY(baseObs).toString());
+    circle.setAttribute("r", "4");
+    circle.setAttribute("fill", "#0b0b0b");
+    svg.appendChild(circle);
   }
 
   private renderFanChart(_muni: Municipality): void {
