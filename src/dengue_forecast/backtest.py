@@ -20,6 +20,8 @@ TEST_SEASONS = (2023, 2024, 2025, 2026)  # 2022-23, 2023-24, 2024-25, 2025-26
 QCOLS = [f"q{q:g}" for q in QUANTILES]
 INTERVALS = (0.5, 0.8, 0.9, 0.95)
 REFERENCE = "naive"
+# Fase 4: rede em grafo e o controle sem troca de mensagens entre vizinhos (mesma rede, A = 0).
+GNN_VARIANTS = {"gnn": {}, "gnn_nograph": {"use_graph": False}}
 
 
 def run_season(model, data: PanelData, season: int, horizons=HORIZONS) -> pd.DataFrame:
@@ -209,9 +211,13 @@ def make_model(name: str, data: PanelData, horizons=HORIZONS, mesh_path: Path | 
     from dengue_forecast import geo
     from dengue_forecast.lgbm import VARIANTS, LGBMQuantile
 
-    if name not in VARIANTS:
+    if name not in VARIANTS and name not in GNN_VARIANTS:
         raise ValueError(f"modelo desconhecido: {name}")
     adjacency = geo.adjacency_matrix(data.geocodes, geo.neighbors(geo.fetch_mesh(mesh_path)))
+    if name in GNN_VARIANTS:
+        from dengue_forecast.gnn import STGNNQuantile  # torch é opcional (grupo gnn)
+
+        return STGNNQuantile(adjacency, horizons=horizons, name=name, **GNN_VARIANTS[name])
     return LGBMQuantile(adjacency, groups=VARIANTS[name], horizons=horizons, name=name)
 
 

@@ -45,6 +45,7 @@ Avaliação temporal por origem móvel (*rolling origin*) em 4 temporadas de tes
 - [x] **Fase 1 — Baselines & Harness de Avaliação**: Baselines probabilísticos (persistência simples, ingênuo por nível, sazonal e histórico por SE) e harness anti-vazamento em janelas expansivas ([relatório da fase 1](reports/fase1.md)).
 - [x] **Fase 2 — LightGBM Global Quantílico**: 42 features causais (lags, médias móveis, sazonalidade, temperatura/umidade defasadas, vizinhança espacial IBGE) e ablação completa ([relatório da fase 2](reports/fase2.md)).
 - [x] **Fase 3 — Calibração Conformal**: Implementação de CQR estático e adaptativo (ACI) com garantia de monotonicidade e preservação de mediana ([relatório da fase 3](reports/fase3.md)).
+- [x] **Fase 4 — Rede em Grafo Espaço-Temporal (GNN)**: resultado negativo para o grafo. A convolução entre municípios vizinhos não melhora a previsão; uma rede multi-horizonte sem grafo reduz o WIS em 9% em h=8, concentrado no surto de 2023-24. O LightGBM segue como modelo servido ([relatório da fase 4](reports/fase4.md)).
 - [x] **Fase 5 — Aplicação Web & Produção**: Dashboard estático interativo em `web/` com mapa coroplético MapLibre, *fan charts* municipais e pipeline de publicação contínua no GitHub Pages.
 - [x] **Fase 6 — Pesquisa & Ablação de Dívida Imunológica (DENV-3)**: Modelagem causal de acúmulo de suscetibilidade e coortes não-imunes na reemergência de sorotipos dormentes ([plano](docs/fase6-plano.md) e [relatório completo](reports/fase6.md)).
 
