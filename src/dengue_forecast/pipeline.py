@@ -1,157 +1,128 @@
-"""Pipeline operacional de atualização semanal das previsões de dengue.
+"""Previsão semanal ao vivo: ajusta o LightGBM, calibra com o CQR por nível e grava `live.json`.
 
-Executado semanalmente (cron do GitHub Actions) ou sob demanda local:
-1. Ingestão de nowcast (casos_est) para mitigar o atraso de notificação recente.
-2. Emissão de previsões multi-horizonte (h ∈ {1, 2, 4, 8}) com quantis calibrados.
-3. Cálculo da probabilidade de surto (incidência > 300 por 100 mil hab.).
-4. Exportação dos artefatos estáticos (JSON) para a camada visual no GitHub Pages.
+Roda depois de `download --refresh-years 1` e `panel`, no workflow semanal ou à mão:
 
-Uso:
-    uv run python -m dengue_forecast.pipeline --sample
+    uv run python -m dengue_forecast.pipeline
+
+As últimas `NOWCAST_WEEKS` semanas ainda estão incompletas (atraso de notificação). Por isso o
+modelo é ajustado sem elas, e a previsão parte do nowcast do InfoDengue (`cases_est`) nessas
+semanas. As margens do CQR vêm de `reports/fase3/margens_cqr_nivel.csv`, calculadas na última
+temporada do backtest (`python -m dengue_forecast.pipeline --write-margins`).
 """
 
 import argparse
+import json
 from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from dengue_forecast import backtest, epiweek, export, metrics
+from dengue_forecast import backtest, epiweek
 from dengue_forecast.baselines import HORIZONS
+from dengue_forecast.conformal import StaticCQR, attach_origin_cases
 from dengue_forecast.data import PanelData
-from dengue_forecast.metrics import QUANTILES
+from dengue_forecast.export import FAN_QUANTILES
+from dengue_forecast.metrics import OUTBREAK_INCIDENCE, exceedance_probability
+
+NOWCAST_WEEKS = 4
+LIVE_HISTORY = 26  # semanas observadas enviadas ao site junto com a previsão
+CQR_BY = ("horizon", "level")
+MARGINS = "reports/fase3/margens_cqr_nivel.csv"
 
 
-def apply_nowcast(data: PanelData, lookback_weeks: int = 4) -> PanelData:
-    """Substitui casos brutos por nowcast (cases_est) nas últimas semanas de notificação.
-
-    Em semanas recentes, a notificação passiva do SINAN sofre atraso cartorial.
-    O InfoDengue calcula 'cases_est' via modelo de correção de atraso Bayesiano.
-    """
+def apply_nowcast(data: PanelData, weeks: int = NOWCAST_WEEKS) -> PanelData:
+    """Troca os casos brutos das últimas `weeks` semanas pelo nowcast, onde ele existe."""
     if "cases_est" not in data.extras:
         return data
-
-    cases_est = data.extras["cases_est"]
-    updated_cases = data.cases.copy()
-    n_weeks = data.n_weeks
-    start_col = max(0, n_weeks - lookback_weeks)
-
-    recent_est = cases_est[:, start_col:]
-    valid_est = ~np.isnan(recent_est) & (recent_est >= 0.0)
-    updated_cases[:, start_col:][valid_est] = recent_est[valid_est]
-
-    return replace(data, cases=updated_cases)
+    cases = data.cases.copy()
+    est = data.extras["cases_est"][:, -weeks:]
+    ok = np.isfinite(est) & (est >= 0)
+    cases[:, -weeks:] = np.where(ok, est, cases[:, -weeks:])
+    return replace(data, cases=cases)
 
 
-def generate_live_forecasts(
-    model,
-    data: PanelData,
-    horizons: tuple[int, ...] = HORIZONS,
-    origin_week: int | None = None,
-) -> pd.DataFrame:
-    """Gera o DataFrame com previsões quantílicas e probabilidades de alerta para a origem dada."""
-    if origin_week is None:
-        origin_week = int(data.epiweeks[-1])
-
-    n_geo = len(data.geocodes)
-    pred_quantiles = model.predict(data, horizons)  # [N, len(horizons), len(QUANTILES)]
-
-    rows = []
-    threshold_300 = backtest.OUTBREAK_INCIDENCE * data.population[:, -1] / 1e5
-
+def forecast_latest(model, data: PanelData, cqr: StaticCQR, horizons=HORIZONS) -> pd.DataFrame:
+    """Previsão calibrada a partir da última semana do painel, uma linha por (município, h)."""
+    model.fit(data.until(data.n_weeks - 1 - NOWCAST_WEEKS))
+    live = apply_nowcast(data)
+    q = model.predict(live, horizons)
+    origin = int(live.epiweeks[-1])
+    n_geo = len(live.geocodes)
+    pop = live.population[:, -1]
+    frames = []
     for j, h in enumerate(horizons):
-        target_week = int(epiweek.add(origin_week, h))
-        q_h = pred_quantiles[:, j, :]  # [N, 9]
-        p_outbreak = metrics.exceedance_probability(q_h, threshold_300)
-        q_median = q_h[:, len(QUANTILES) // 2]
-
-        for i in range(n_geo):
-            row_dict = {
-                "geocode": int(data.geocodes[i]),
-                "origin": origin_week,
-                "target": target_week,
-                "horizon": int(h),
-                "y": float(data.cases[i, -1]),
-                "population": float(data.population[i, -1]),
-                "p_outbreak": float(p_outbreak[i]),
-                "q0.5": float(q_median[i]),
-            }
-            for q_idx, q_col in enumerate(backtest.QCOLS):
-                row_dict[q_col] = float(q_h[i, q_idx])
-            rows.append(row_dict)
-
-    return pd.DataFrame(rows)
+        frame = pd.DataFrame(q[:, j, :], columns=backtest.QCOLS)
+        frame.insert(0, "geocode", live.geocodes)
+        frame.insert(1, "origin", origin)
+        frame.insert(2, "target", int(epiweek.add(origin, h)))
+        frame.insert(3, "horizon", np.full(n_geo, h))
+        frame.insert(4, "population", pop)
+        frames.append(frame)
+    out = attach_origin_cases(pd.concat(frames, ignore_index=True), live)
+    out = cqr.transform(out)
+    threshold = OUTBREAK_INCIDENCE * out["population"].to_numpy(dtype=float) / 1e5
+    out["p_outbreak"] = exceedance_probability(out[backtest.QCOLS].to_numpy(), threshold)
+    return out
 
 
-def run_pipeline(
-    data: PanelData,
-    model,
-    out_dir: Path | str = "web/public/data",
-    reports_dir: Path | str = "reports/fase6",
-    sample_geocodes: list[int] | None = None,
-) -> dict[str, int]:
-    """Executa o ciclo completo de previsão operacional e exportação para o frontend."""
-    out_path = Path(out_dir)
-    out_path.mkdir(parents=True, exist_ok=True)
-
-    # 1. Aplicação de nowcast nas últimas semanas
-    adjusted_data = apply_nowcast(data, lookback_weeks=4)
-
-    # 2. Geração das previsões da semana mais recente
-    forecasts = generate_live_forecasts(model, adjusted_data)
-
-    # 3. Exportação de dados do mapa e fan charts
-    paths_timeline = export.export_map_timeline(forecasts, out_path / "timeline")
-    paths_fanchart = export.export_fan_chart_series(
-        forecasts, out_path / "fancharts", geocodes=sample_geocodes
-    )
-    export.export_evaluation_summary(reports_dir, out_path / "evaluation_summary.json")
-
-    return {
-        "timeline_slices": len(paths_timeline),
-        "fan_charts": len(paths_fanchart),
-        "total_forecasts": len(forecasts),
+def export_live(forecasts: pd.DataFrame, data: PanelData, out_file: Path | str) -> dict:
+    """`live.json`: quantis e P(surto) por horizonte, na ordem dos municípios do painel."""
+    live = apply_nowcast(data)
+    record: dict = {
+        "origin": int(forecasts["origin"].iloc[0]),
+        "geocodes": [int(g) for g in data.geocodes],
+        "targets": {},
+        "obs_weeks": [int(w) for w in live.epiweeks[-LIVE_HISTORY:]],
+        "obs": np.round(live.cases[:, -LIVE_HISTORY:], 1).tolist(),
+        "nowcast_weeks": NOWCAST_WEEKS,
     }
+    for h, sub in forecasts.groupby("horizon"):
+        sub = sub.set_index("geocode").loc[data.geocodes]
+        record["targets"][str(h)] = int(sub["target"].iloc[0])
+        record[f"h{h}"] = {q: sub[q].round(1).tolist() for q in FAN_QUANTILES}
+        record[f"h{h}"]["p"] = sub["p_outbreak"].round(3).tolist()
+    out = Path(out_file)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(record, separators=(",", ":")), encoding="utf-8")
+    return json.loads(out.read_text(encoding="utf-8"))
+
+
+def write_margins(forecast_dir: Path | str, data: PanelData, out_file: Path | str) -> None:
+    """Margens do CQR por nível calculadas na temporada mais recente do backtest."""
+    season = max(backtest.TEST_SEASONS)
+    cal = pd.read_parquet(Path(forecast_dir) / f"lgbm_{season}.parquet")
+    cqr = StaticCQR(by=CQR_BY, name="lgbm_cqr_level").fit(attach_origin_cases(cal, data))
+    cqr.to_frame().to_csv(out_file, index=False, float_format="%.6f")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--out-dir", default="web/public/data")
-    parser.add_argument("--reports-dir", default="reports/fase6")
-    parser.add_argument("--sample", action="store_true", help="Gera com dados sintéticos")
+    parser.add_argument("--panel", default="data/processed/panel.parquet")
+    parser.add_argument("--mesh", default="data/raw/ibge/malha_municipios.topo.json")
+    parser.add_argument("--margins", default=MARGINS)
+    parser.add_argument("--out", default="web/public/data/live.json")
+    parser.add_argument(
+        "--write-margins", action="store_true", help="recalcula as margens a partir do backtest"
+    )
+    parser.add_argument("--forecast-dir", default="data/forecasts")
     args = parser.parse_args(argv)
 
-    print(f"Iniciando pipeline operacional semanal (sample={args.sample})...")
-    from dengue_forecast.baselines import NaiveLevel
+    from dengue_forecast.features import CLIMATE
 
-    # Na ausência de painel real baixado, opera em modo seguro com baseline
-    model = NaiveLevel()
-    rng = np.random.default_rng(42)
-    weeks = np.array([202401, 202402, 202403, 202404])
-    codes = np.array([3550308, 3304557, 3106200, 5300108, 4106902, 2927408, 1302603])
-    cases = rng.poisson(150, (len(codes), len(weeks))).astype(float)
-    pop = np.full((len(codes), len(weeks)), 1_000_000.0)
+    columns = ["geocode", "epiweek", "cases", "cases_est", "population", "pop_band", "region"]
+    panel = pd.read_parquet(args.panel, columns=[*columns, *CLIMATE])
+    data = PanelData.from_panel(panel, extras=(*CLIMATE, "cases_est"))
+    if args.write_margins:
+        write_margins(args.forecast_dir, data, args.margins)
+        print(f"margens gravadas em {args.margins}")
+        return 0
 
-    sample_data = PanelData(
-        geocodes=codes,
-        epiweeks=weeks,
-        cases=cases,
-        population=pop,
-        band=np.full(len(codes), 4, dtype=np.int8),
-        region=np.full(len(codes), "Sudeste"),
-        extras={"cases_est": cases * 1.1},
-    )
-    model.fit(sample_data.until(2))
-
-    stats = run_pipeline(
-        sample_data,
-        model,
-        out_dir=args.out_dir,
-        reports_dir=args.reports_dir,
-        sample_geocodes=codes.tolist(),
-    )
-    print(f"Pipeline concluído: {stats}")
+    cqr = StaticCQR.from_frame(pd.read_csv(args.margins), CQR_BY, "lgbm_cqr_level")
+    model = backtest.make_model("lgbm", data, mesh_path=args.mesh)
+    forecasts = forecast_latest(model, data, cqr)
+    live = export_live(forecasts, data, args.out)
+    print(f"previsão a partir de {live['origin']}: alvos {live['targets']}")
     return 0
 
 

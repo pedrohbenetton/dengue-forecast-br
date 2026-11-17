@@ -109,8 +109,8 @@ def plot_calibration_comparison(
 
     style.titles(
         fig,
-        "Calibração conformal corrige a largura excessiva e recupera cobertura",
-        "Cobertura empírica dos intervalos centrais antes e depois do ajuste",
+        "A calibração conformal quase não muda a cobertura: o LightGBM já cobria além do nominal",
+        "Cobertura empírica dos intervalos centrais, antes e depois do ajuste (linhas sobrepostas)",
         source=SOURCE,
     )
     return fig
@@ -164,7 +164,7 @@ def plot_weekly_coverage_2024(
 
     style.titles(
         fig,
-        "ACI reage dinamicamente durante o surto recorde de 2024",
+        "Nenhum ajuste evita a queda de cobertura na subida de 2024; o ACI só recupera depois",
         "Cobertura do intervalo de 90% semana a semana na temporada 2023-24",
         source=SOURCE,
     )
@@ -196,7 +196,7 @@ def plot_alpha_trajectory_2024(aci_df: pd.DataFrame) -> Figure:
 
     style.titles(
         fig,
-        r"$\alpha_{\mathrm{eff}}$ cai durante a subida do surto para forçar intervalos mais largos",
+        r"Em h=8 o $\alpha_{\mathrm{eff}}$ despenca depois do pico e alarga demais os intervalos",
         "Mecanismo adaptativo da ACI ao longo das semanas de 2023-24",
         source=SOURCE,
     )
@@ -237,7 +237,7 @@ def plot_skill_comparison(scored: pd.DataFrame, reference: str = "naive_level") 
     ref_label = PHASE3_LABELS.get(reference, reference).lower()
     style.titles(
         fig,
-        "Calibração mantém ou melhora o WIS do LightGBM",
+        "Só o CQR por nível melhora o WIS; o ACI piora em h=8",
         f"WIS relativo ao {ref_label} (abaixo de 1× é melhor)",
         source=SOURCE,
     )

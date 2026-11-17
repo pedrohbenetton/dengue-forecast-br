@@ -18,8 +18,8 @@ O desafio de prever dengue no Brasil geralmente foca em agregados estaduais. Est
 1. **Desempenho Preditivo**: Um modelo único global **LightGBM Quantílico** supera o melhor baseline (*persistência estratificada por patamar de casos*) em **todos** os horizontes ($h \in \{1, 2, 4, 8\}$) e em todas as 27 Unidades da Federação.
 2. **Redução de WIS**: Redução consistente de 14% a 25% no *Weighted Interval Score* (WIS) em relação ao baseline de referência.
 3. **Alerta Precoce de Surtos**: O PR-AUC para prever incidência explosiva (> 300 casos / 100 mil habitantes) em 8 semanas à frente salta de **0,23 para 0,43**.
-4. **Calibração Conformal (CQR e ACI)**: Pós-processamento via *Conformalized Quantile Regression* com correção de amostra finita e *Adaptive Conformal Inference* (Gibbs & Candès, 2021), corrigindo a supercobertura em períodos normais e recuperando a cobertura nominal durante o surto recorde histórico de 2024.
-5. **Aplicação Web Interativa**: Painel interativo com **MapLibre GL JS**, malha TopoJSON simplificada do Brasil, *timeline slider* e *fan charts* dinâmicos por município (hospedado no GitHub Pages).
+4. **Calibração Conformal (CQR)**: o ganho é pequeno. Estratificar a margem por horizonte e nível de casos reduz o WIS em h=8 de 6,43 para 6,30 e leva a cobertura de 90% dos municípios de 100–500 mil habitantes de 87,8% para 90,8%. Nenhuma variante evita a queda de cobertura na subida do surto de 2024, e a variante adaptativa (ACI) piora o horizonte longo ([fase 3](reports/fase3.md)).
+5. **Aplicação Web**: mapa dos 5.570 municípios (MapLibre + malha IBGE em TopoJSON) com as previsões do backtest semana a semana, e *fan charts* por município, tudo gerado a partir dos dados reais (GitHub Pages).
 
 ---
 
@@ -27,13 +27,17 @@ O desafio de prever dengue no Brasil geralmente foca em agregados estaduais. Est
 
 Avaliação temporal por origem móvel (*rolling origin*) em 4 temporadas de teste (2022–23, 2023–24, 2024–25 e 2025–26) em mais de 4,6 milhões de previsões individuais:
 
-| Modelo | WIS h=1 | WIS h=2 | WIS h=4 | WIS h=8 | Cob. 90% | PR-AUC Alerta (h=8) |
+| Modelo | WIS h=1 | WIS h=2 | WIS h=4 | WIS h=8 | Cob. 90% (média dos h) | PR-AUC alerta (h=8) |
 |---|---|---|---|---|---|---|
-| Ingênuo (persistência simples) | 2,42 | 4,02 | 6,55 | 10,81 | 91,2% | 0,201 |
-| Ingênuo por nível de casos (referência) | 2,10 | 3,17 | 5,15 | 8,61 | 92,5% | 0,234 |
-| LightGBM Global Quantílico | 1,80 | 2,53 | 3,84 | 6,43 | 92,0% | 0,434 |
-| **LightGBM + CQR Estático** | **1,78** | **2,50** | **3,80** | **6,38** | **90,4%** | **0,436** |
-| **LightGBM + ACI Adaptativo** | **1,77** | **2,48** | **3,79** | **6,35** | **90,1%** | **0,441** |
+| Ingênuo (última semana) | 2,66 | 3,68 | 5,86 | 10,53 | 87,4% | 0,218 |
+| Ingênuo por nível de casos (referência) | 2,10 | 3,17 | 5,15 | 8,61 | 93,0% | 0,234 |
+| LightGBM global quantílico | 1,80 | 2,53 | 3,84 | 6,43 | 93,1% | 0,434 |
+| **LightGBM + CQR por nível (servido)** | 1,80 | 2,53 | 3,80 | 6,30 | 93,5% | 0,440 |
+| LightGBM + ACI por horizonte | 1,80 | 2,53 | 3,84 | 7,17 | 93,3% | 0,436 |
+| Rede em grafo (fase 4) | 1,82 | 2,49 | 3,75 | 5,92 | 92,8% | 0,467 |
+| Mesma rede, sem grafo (fase 4) | 1,79 | 2,47 | 3,67 | 5,85 | 92,9% | 0,459 |
+
+Todos os números saem dos CSVs em [`reports/`](reports/). A rede sem grafo é a melhor em h=4 e h=8, mas não substituiu o LightGBM: a vantagem vem de duas das quatro temporadas e foi medida com uma única semente ([fase 4](reports/fase4.md)).
 
 ![Série Histórica e Análise Exploratória](reports/figures/eda_ano_recorde.png)
 
@@ -46,18 +50,18 @@ Avaliação temporal por origem móvel (*rolling origin*) em 4 temporadas de tes
 - [x] **Fase 2 — LightGBM Global Quantílico**: 42 features causais (lags, médias móveis, sazonalidade, temperatura/umidade defasadas, vizinhança espacial IBGE) e ablação completa ([relatório da fase 2](reports/fase2.md)).
 - [x] **Fase 3 — Calibração Conformal**: Implementação de CQR estático e adaptativo (ACI) com garantia de monotonicidade e preservação de mediana ([relatório da fase 3](reports/fase3.md)).
 - [x] **Fase 4 — Rede em Grafo Espaço-Temporal (GNN)**: resultado negativo para o grafo. A convolução entre municípios vizinhos não melhora a previsão; uma rede multi-horizonte sem grafo reduz o WIS em 9% em h=8, concentrado no surto de 2023-24. O LightGBM segue como modelo servido ([relatório da fase 4](reports/fase4.md)).
-- [x] **Fase 5 — Aplicação Web & Produção**: Dashboard estático interativo em `web/` com mapa coroplético MapLibre, *fan charts* municipais e pipeline de publicação contínua no GitHub Pages.
+- [x] **Fase 5 — Aplicação Web & Produção**: site estático em `web/` com mapa coroplético, *fan charts* e benchmarks gerados dos dados reais, e workflow semanal (`weekly.yml`) que baixa os dados novos, ajusta o LightGBM, calibra com o CQR por nível e publica a previsão ao vivo no GitHub Pages.
 - [x] **Fase 6 — Pesquisa & Ablação de Dívida Imunológica (DENV-3)**: Modelagem causal de acúmulo de suscetibilidade e coortes não-imunes na reemergência de sorotipos dormentes ([plano](docs/fase6-plano.md) e [relatório completo](reports/fase6.md)).
 
 ---
 
 ## Camada Visual Interativa (Web)
 
-O repositório inclui uma aplicação web moderna sem backend em [`web/`](web/):
-* **Mapa Coroplético**: Renderiza os 5.570 municípios a 60 FPS com MapLibre GL JS e malha TopoJSON compacta (< 2,5 MB).
-* **Controle Temporal**: Slider semanal com animação play/pause acompanhando a evolução espacial do surto.
-* **Drill-down com Fan Charts**: Gráficos SVG interativos com leques de incerteza (50%, 80%, 90% e 95%) para cada município.
-* **Benchmark Interativo**: Tabelas e métricas comparativas em tempo real.
+O site em [`web/`](web/) não tem backend: lê arquivos estáticos gerados por `dengue_forecast.export` a partir do painel e das previsões do backtest.
+* **Mapa coroplético** dos 5.570 municípios (MapLibre GL JS + malha IBGE em TopoJSON, 1,4 MB), com incidência observada, mediana prevista ou probabilidade de surto, por horizonte.
+* **Slider semanal** com reprodução, cobrindo as 209 semanas-alvo das temporadas de teste (2022-23 a 2025-26).
+* **Fan chart por município**: série observada e faixas de 50% e 90% previstas a 1, 4 ou 8 semanas.
+* **Tabela de benchmarks** lida dos CSVs dos relatórios; nenhum número é digitado à mão no site.
 
 ---
 
@@ -71,7 +75,7 @@ git clone https://github.com/pedrohbenetton/dengue-forecast-br.git
 cd dengue-forecast-br
 uv sync
 
-# 2. Rodar a suíte completa de testes (115 testes, 100% offline)
+# 2. Rodar a suíte completa de testes (sem rede)
 uv run pytest -q
 uv run ruff check
 
@@ -87,7 +91,9 @@ uv run python -m dengue_forecast.conformal    # Calibração conformal (CQR / AC
 uv run python -m dengue_forecast.viz.phase3   # Diagnósticos de calibração
 
 # 5. Frontend Web
-uv run python -m dengue_forecast.export       # Exporta dados compactos para o site
+uv run python -m dengue_forecast.export       # Histórico do backtest para o site
+tar czf site/history.tar.gz -C web/public/data .  # versão publicada pelo CI
+uv run python -m dengue_forecast.pipeline     # Previsão ao vivo (web/public/data/live.json)
 cd web && npm install && npm run build        # Build da aplicação estática
 ```
 

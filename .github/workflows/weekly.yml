@@ -1,0 +1,47 @@
+name: Previsão semanal
+
+# Toda segunda-feira: atualiza os dados do InfoDengue, ajusta o LightGBM, calibra com o CQR por
+# nível e publica a previsão ao vivo no site.
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # segunda, 06:00 em Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - name: Cache dos dados brutos
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+      - name: Download (incremental quando há cache)
+        run: |
+          if [ -f data/raw/infodengue/_manifest.json ]; then
+            uv run python -m dengue_forecast.download --refresh-years 2
+          else
+            uv run python -m dengue_forecast.download
+          fi
+      - run: uv run python -m dengue_forecast.panel
+      - run: uv run python -m dengue_forecast.pipeline --out live/live.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live
+          path: live/live.json
+          retention-days: 30
+
+  deploy:
+    needs: forecast
+    uses: ./.github/workflows/deploy-pages.yml
+    with:
+      live_artifact: live

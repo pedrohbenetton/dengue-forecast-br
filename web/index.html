@@ -18,7 +18,7 @@
             <h1>Dengue Forecast BR</h1>
           </div>
           <p class="subtitle">
-            Previsão probabilística semanal de casos para os 5.570 municípios do Brasil com intervalos calibrados (CQR/ACI).
+            Previsão probabilística semanal de casos para os 5.570 municípios do Brasil com intervalos calibrados (CQR por nível de casos).
           </p>
         </div>
         <div class="header-right">
@@ -119,24 +119,24 @@
           <aside id="municipality-drawer" class="municipality-drawer">
             <div class="drawer-header">
               <div>
-                <h3 id="drawer-muni-name">São Paulo — SP</h3>
-                <span id="drawer-muni-meta" class="drawer-meta">Geocode: 3550308 | Pop: 11,4M</span>
+                <h3 id="drawer-muni-name">—</h3>
+                <span id="drawer-muni-meta" class="drawer-meta"></span>
               </div>
               <button id="btn-close-drawer" class="btn-close">&times;</button>
             </div>
             <div class="drawer-body">
               <div class="drawer-kpi-grid">
                 <div class="kpi-card">
-                  <span class="kpi-label">Casos Recentes</span>
-                  <span id="drawer-kpi-cases" class="kpi-value">1.450</span>
+                  <span class="kpi-label">Casos na semana</span>
+                  <span id="drawer-kpi-cases" class="kpi-value">—</span>
                 </div>
                 <div class="kpi-card">
                   <span class="kpi-label">Previsão h=4 (mediana)</span>
-                  <span id="drawer-kpi-pred" class="kpi-value">2.180</span>
+                  <span id="drawer-kpi-pred" class="kpi-value">—</span>
                 </div>
                 <div class="kpi-card">
                   <span class="kpi-label">P(Surto > 300/100k)</span>
-                  <span id="drawer-kpi-outbreak" class="kpi-value alert">34%</span>
+                  <span id="drawer-kpi-outbreak" class="kpi-value alert">—</span>
                 </div>
               </div>
 
@@ -144,11 +144,12 @@
               <div class="chart-section">
                 <h4>Intervalos de Previsão Calibrados (Fan Chart)</h4>
                 <p class="chart-desc">
-                  Leques representam 50%, 80%, 90% e 95% de incerteza calibrados via Conformal Prediction (CQR/ACI).
+                  Linha preta: casos observados. Faixas: intervalos de 50% e 90% previstos para cada semana no horizonte escolhido (backtest 2022-23 a 2025-26, calibrado com CQR por nível).
                 </p>
                 <div id="fanchart-container" class="fanchart-container">
                   <svg id="fanchart-svg" viewBox="0 0 500 240"></svg>
                 </div>
+                <div id="drawer-live" class="drawer-live"></div>
               </div>
             </div>
           </aside>
@@ -166,7 +167,7 @@
 
             <!-- Tabela Comparativa de Modelos -->
             <div class="eval-table-card">
-              <h3>Desempenho por Horizonte (WIS Relativo ao Baseline)</h3>
+              <h3>WIS por horizonte (menor é melhor) e cobertura média do intervalo de 90%</h3>
               <div class="table-responsive">
                 <table class="benchmark-table">
                   <thead>
@@ -190,19 +191,19 @@
             <!-- Destaques dos Resultados -->
             <div class="results-grid">
               <div class="result-highlight-card">
-                <div class="result-number">14% a 25%</div>
-                <div class="result-title">Redução de WIS</div>
-                <p>O LightGBM global quantílico supera o melhor baseline em todos os horizontes e nas 27 UFs.</p>
+                <div class="result-number">−14% a −25%</div>
+                <div class="result-title">WIS do LightGBM contra o melhor baseline</div>
+                <p>Ganho em todos os horizontes, faixas de população, regiões e nas 27 UFs.</p>
               </div>
               <div class="result-highlight-card">
                 <div class="result-number">0,43 vs 0,23</div>
-                <div class="result-title">PR-AUC de Surto em h=8</div>
-                <p>Capacidade de alerta antecipado para surtos graves quase dobra em relação ao baseline de persistência.</p>
+                <div class="result-title">PR-AUC do alerta de surto em h=8</div>
+                <p>Alerta de incidência acima de 300 por 100 mil, 8 semanas antes.</p>
               </div>
               <div class="result-highlight-card">
-                <div class="result-number">Calibração Exata</div>
-                <div class="result-title">Conformal Prediction CQR/ACI</div>
-                <p>Intervalos corrigidos garantem cobertura estrita mesmo durante o surto recorde histórico de 2024.</p>
+                <div class="result-number">87% → 88%</div>
+                <div class="result-title">Cobertura de 90% em 2023-24, h=8</div>
+                <p>A calibração conformal ajuda pouco: nenhuma variante evita a queda de cobertura na subida do surto de 2024.</p>
               </div>
             </div>
           </div>
@@ -228,18 +229,23 @@
                 O modelo nunca tem acesso a dados climáticos futuros observados na semana-alvo.
               </p>
 
-              <h3>3. Calibração Conformal (CQR & ACI)</h3>
+              <h3>3. Calibração Conformal (CQR)</h3>
               <p>
-                Modelos quantílicos padrão sofrem distorções de cobertura sob quebras de regime (como o ano atípico de 2024).
-                A camada Conformal Quantile Regression (CQR) e Adaptive Conformal Inference (ACI) ajusta as margens de incerteza
-                de forma dinâmica preservando a mediana e garantindo cobertura empírica honesta.
+                As margens dos intervalos são ajustadas em escala log, por horizonte e por nível de casos na origem,
+                usando os erros da temporada anterior. O ganho é pequeno (WIS em h=8 de 6,43 para 6,30) e se concentra
+                nos municípios de 100 a 500 mil habitantes, cuja cobertura de 90% sobe de 87,8% para 90,8%. A variante
+                adaptativa (ACI) piorou o horizonte longo e não é usada.
               </p>
-
-              <h3>4. Pesquisa de Dívida Imunológica (DENV-3)</h3>
+              <h3>4. Rede em grafo (fase 4)</h3>
               <p>
-                Após 15 anos de dormência do sorotipo DENV-3 no Brasil, o choque de 2024 expôs coortes inteiras sem imunidade prévia.
-                Proxies causais de histórico de calmaria (razão de semanas silenciosas em 3 anos e impulso de reemergência)
-                melhoram a antecipação de surtos em horizontes longos (h=8), elevando o PR-AUC para 0,441 e mitigando subestimações em transições epidêmicas bruscas.
+                A troca de mensagens entre municípios vizinhos não melhorou a previsão: a mesma rede sem o grafo empata
+                ou ganha. A rede neural em si reduz o WIS em h=8 em cerca de 9%, mas a vantagem vem de duas das quatro
+                temporadas, e o LightGBM continua sendo o modelo servido.
+              </p>
+              <h3>5. Dívida imunológica (fase 6)</h3>
+              <p>
+                Proxies de longos períodos sem casos (o DENV-3 reemergiu em 2023-24) mudam pouco: o WIS em h=8 cai 0,5% e o
+                PR-AUC de 0,434 para 0,441, diferenças da ordem da variação entre execuções.
               </p>
             </article>
           </div>

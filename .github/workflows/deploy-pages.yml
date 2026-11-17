@@ -1,35 +1,50 @@
 name: Deploy GitHub Pages
 
+# Publica o site a cada push na main. O histórico do backtest vem de site/history.tar.gz
+# (gerado localmente por `dengue_forecast.export`); a previsão ao vivo é reaproveitada do
+# site já publicado, e só é recalculada pelo workflow semanal (weekly.yml).
+
 on:
   push:
     branches: [main]
-  schedule:
-    # Execução semanal automática: toda segunda-feira às 06:00 UTC (03:00 BRT)
-    - cron: "0 6 * * 1"
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      live_artifact:
+        type: string
+        default: ""
 
 permissions:
   contents: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync
-      - run: uv run python -m dengue_forecast.pipeline --sample --out-dir web/public/data
-      - run: uv run python -m dengue_forecast.export --out-dir web/public/data
+      - name: Dados do histórico
+        run: mkdir -p web/public/data && tar xzf site/history.tar.gz -C web/public/data
+      - name: Previsão ao vivo (do workflow semanal)
+        if: inputs.live_artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.live_artifact }}
+          path: web/public/data
+      - name: Previsão ao vivo (reaproveitada do site publicado)
+        if: inputs.live_artifact == ''
+        run: |
+          url="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/data/live.json"
+          curl -fsSL "$url" -o web/public/data/live.json || echo "sem previsão ao vivo publicada"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd web && npm install && npm run build
-      - name: Deploy to gh-pages branch
-        uses: peaceiris/actions-gh-pages@v4
+      - run: cd web && npm ci && npm run build
+      - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./web/dist
+          force_orphan: true  # o branch gh-pages não acumula histórico de dados

@@ -142,6 +142,35 @@ class StaticCQR:
             )
         return self
 
+    def to_frame(self) -> pd.DataFrame:
+        """Margens em tabela (uma linha por grupo), para guardar no repositório."""
+        if self.global_margin_ is None:
+            raise RuntimeError("chame fit() antes de to_frame()")
+        cols = [f"m{int(nom * 100)}" for nom in INTERVALS]
+        rows = [{"kind": "global", **dict(zip(cols, self.global_margin_, strict=True))}]
+        for h, m in self.horizon_margins_.items():
+            rows.append({"kind": "horizon", "horizon": h, **dict(zip(cols, m, strict=True))})
+        for key, m in self.margins_.items():
+            group = dict(zip(self.by, (int(k) for k in key), strict=True))
+            rows.append({"kind": "group", **group, **dict(zip(cols, m, strict=True))})
+        return pd.DataFrame(rows, columns=["kind", *self.by, *cols])
+
+    @classmethod
+    def from_frame(cls, frame: pd.DataFrame, by: tuple[str, ...], name: str) -> "StaticCQR":
+        cqr = cls(by=by, name=name)
+        cols = [f"m{int(nom * 100)}" for nom in INTERVALS]
+        for row in frame.itertuples(index=False):
+            m = np.array([getattr(row, c) for c in cols], dtype=float)
+            if row.kind == "global":
+                cqr.global_margin_ = m
+            elif row.kind == "horizon":
+                cqr.horizon_margins_[int(row.horizon)] = m
+            else:
+                cqr.margins_[tuple(int(getattr(row, k)) for k in by)] = m
+        if cqr.global_margin_ is None:
+            raise ValueError("tabela de margens sem a linha global")
+        return cqr
+
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.global_margin_ is None:
             raise RuntimeError("chame fit() antes de transform()")
@@ -332,7 +361,6 @@ def run(
     for name, method in variants.items():
         log(f"Ajustando {name}...")
         season_adjs: list[pd.DataFrame] = []
-        adj_2024: pd.DataFrame | None = None
         for season in backtest.TEST_SEASONS:
             cal_df = cal_dfs[season]
             test_df = test_dfs[season]
@@ -342,16 +370,12 @@ def run(
             else:
                 adj = method.run(cal_df, test_df)
             season_adjs.append(adj)
-            if season == 2024:
-                adj_2024 = adj
+            adj.to_parquet(forecast_dir / f"{name}_{season}.parquet", index=False)
 
         full_adj = pd.concat(season_adjs, ignore_index=True)
         scored = backtest.score(full_adj).assign(model=name)[backtest._KEEP]
         scored = scored.astype({c: "float32" for c in ("wis", "wis_log", "ae", "p_outbreak")})
         scored.to_parquet(forecast_dir / "scored" / f"{name}.parquet", index=False)
-
-        if adj_2024 is not None:
-            adj_2024.to_parquet(forecast_dir / f"{name}_2024.parquet", index=False)
 
     all_models = [reference, "lgbm", *variants.keys()]
     scored_all = backtest.load_scored(forecast_dir, all_models)
