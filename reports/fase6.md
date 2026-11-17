@@ -14,7 +14,7 @@ A hipótese biológica central investigada nesta fase é se **sinais causais de 
 
 1. **Impacto marginal global moderado**: Em termos de WIS geral em todas as 4 temporadas e 5.570 municípios, a adição do grupo `immunity` reduz o WIS em $h=1$ de 1,7994 para 1,7932 (-0,3%) e em $h=8$ de 6,4329 para 6,3980 (-0,5%).
 2. **Ganho focal no choque histórico de 2023-24**: No ano recorde de 2024 (ano de introdução massiva do DENV-3 em coortes não-imunes), o WIS em $h=8$ cai de 15,7657 para 15,6021 (ganho relativo de ~1,0% sobre o modelo anterior).
-3. **Melhoria na antecipação de surtos (PR-AUC)**: O PR-AUC do alerta de surto em $h=8$ sobe de 0,4338 para 0,4412 (+1,7%), demonstrando que as features `reemergence_boost` e `quiet_ratio` auxiliam na identificação precoce da transição de cidades dormentes para fases epidêmicas ativas.
+3. **Melhoria na antecipação de surtos (PR-AUC)**: O PR-AUC do alerta de surto em $h=8$ sobe de 0,4338 para 0,4412 (+1,7%). É um ganho pequeno, medido numa única execução, sem estimativa da variação entre sementes; não basta para afirmar que `reemergence_boost` e `quiet_ratio` antecipam a transição de cidades dormentes para surtos.
 4. **Resultado científico honesto**: Como não existe vigilância genômica municipal com PCR semanal para todos os municípios, os proxies indiretos de série histórica não substituem a discriminação biológica direta de sorotipos, mas oferecem proteção marginal contra quebras de regime em municípios com longo histórico de calmaria.
 
 ---

@@ -29,7 +29,7 @@ agregado, mas só 87,2% em 2023-24 h=8.
 | Variante | WIS h=1 | h=2 | h=4 | h=8 | Cobertura 90% (média dos h) | PR-AUC h=8 |
 |---|---|---|---|---|---|---|
 | LightGBM sem calibração | 1,799 | 2,527 | 3,844 | 6,433 | 93,1% | 0,434 |
-| CQR por horizonte | 1,799 | 2,527 | 3,844 | 6,448 | 93,3% | 0,434 |
+| CQR por horizonte | 1,799 | 2,527 | 3,844 | 6,448 | 93,2% | 0,434 |
 | **CQR por horizonte × nível** | 1,802 | 2,528 | **3,802** | **6,296** | 93,5% | **0,440** |
 | ACI por horizonte | 1,801 | 2,528 | 3,842 | 7,167 | 93,3% | 0,436 |
 | ACI por horizonte × nível | 1,795 | 2,504 | 3,950 | 6,517 | 93,5% | 0,440 |
@@ -47,10 +47,12 @@ agregado, mas só 87,2% em 2023-24 h=8.
 - **O ACI piora o horizonte longo.** Em h=8, o retorno do erro chega 8 semanas atrasado: o
   $\alpha_{\mathrm{eff}}$ continua caindo depois do pico e os intervalos ficam largos demais na
   descida. O WIS de 2023-24 h=8 sobe de 15,8 para 18,8.
-- **Por que a margem por horizonte é zero.** Na maior parte das linhas de calibração o caso é
-  zero e o quantil inferior também, então o escore de conformidade empata em exatamente 0; o
-  quantil 90% desses escores é 0 e a margem não muda nada. Só os grupos com casos na origem têm
-  escores informativos, e por isso a estratificação por nível é a única que age.
+- **Por que a margem por horizonte quase não age.** Entre 48% e 64% das linhas de calibração
+  (conforme a temporada) têm zero casos e quantil inferior zero, e o escore de conformidade
+  empata em exatamente 0. Com isso o quantil 90% dos escores é 0 na margem global de todas as
+  temporadas, e as margens por horizonte ficam em zero ou perto disso (só h=8 muda um pouco em
+  algumas temporadas). Os grupos com casos na origem têm escores informativos, e por isso a
+  estratificação por nível é a que age.
 
 As margens servidas em produção estão em [`fase3/margens_cqr_nivel.csv`](fase3/margens_cqr_nivel.csv),
 calculadas com a temporada 2025-26. Como foi uma temporada calma, elas *estreitam* os intervalos

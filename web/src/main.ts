@@ -30,6 +30,7 @@ interface FanData {
   weeks: number[];
   obs: (number | null)[];
   h1?: FanQuantiles;
+  h2?: FanQuantiles;
   h4?: FanQuantiles;
   h8?: FanQuantiles;
   [key: string]: FanQuantiles | number[] | (number | null)[] | undefined;
@@ -727,9 +728,7 @@ class App {
         const obsVal = this.currentFanData.obs[weekIdx];
         if (casesEl) casesEl.textContent = formatNumber(obsVal, 0);
 
-        const hKey = (this.activeHorizon === 4 || this.activeHorizon === 8)
-          ? `h${this.activeHorizon}`
-          : "h1";
+        const hKey = `h${this.activeHorizon}`;
         const fanH = this.currentFanData[hKey] as FanQuantiles | undefined;
         const predVal = fanH?.["q0.5"]?.[weekIdx];
         if (predEl) predEl.textContent = formatNumber(predVal, 0);
@@ -786,9 +785,7 @@ class App {
       return padLeft + (index / (n - 1)) * plotWidth;
     };
 
-    const hKey = (this.activeHorizon === 4 || this.activeHorizon === 8)
-      ? `h${this.activeHorizon}`
-      : "h1";
+    const hKey = `h${this.activeHorizon}`;
     const quantiles = data[hKey] as FanQuantiles | undefined;
     const q05 = quantiles?.["q0.05"] || [];
     const q25 = quantiles?.["q0.25"] || [];

@@ -31,7 +31,7 @@ from dengue_forecast.metrics import OUTBREAK_INCIDENCE, exceedance_probability
 INC_SCALE = 32.0
 MISSING = 255
 FAN_QUANTILES = ("q0.05", "q0.25", "q0.5", "q0.75", "q0.95")
-FAN_HORIZONS = (1, 4, 8)
+FAN_HORIZONS = HORIZONS
 SERVED = "lgbm_cqr_level"
 
 # Ordem e rótulos da tabela de benchmarks do site.
