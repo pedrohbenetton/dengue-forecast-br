@@ -6,5 +6,13 @@ export default defineConfig({
     outDir: "dist",
     assetsDir: "assets",
     sourcemap: true,
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          maplibre: ["maplibre-gl"],
+        },
+      },
+    },
   },
 });

@@ -2,7 +2,7 @@
 
 ## 1. Motivação e Critério de Decisão
 
-Na [Fase 2](reports/fase2.md), o LightGBM quantílico global alcançou expressiva redução de WIS
+Na [Fase 2](../reports/fase2.md), o LightGBM quantílico global alcançou expressiva redução de WIS
 (14% a 25% abaixo do melhor baseline) usando árvores de decisão tabulares. No entanto, a ablação
 revelou que a inclusão ingênua de features espaciais (incidência média de vizinhos contíguos agregada
 em uma única feature escalar `nb0`) praticamente não melhorou o WIS bruto em $h=8$ (0,727 vs 0,740).

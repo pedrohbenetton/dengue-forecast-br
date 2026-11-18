@@ -76,3 +76,40 @@ def test_average_precision():
     # empate total: a precisão é a prevalência
     assert metrics.average_precision(labels, np.ones(4)) == pytest.approx(0.5)
     assert np.isnan(metrics.average_precision(np.zeros(4, dtype=bool), scores))
+
+
+def test_pit_uniform_for_calibrated_continuous_and_zero_inflated():
+    from scipy import stats
+
+    rng = np.random.default_rng(123)
+    # 1. Contínua calibrada (Gamma)
+    y_cont = rng.gamma(shape=3.0, scale=5.0, size=20_000)
+    q_cont = np.tile(stats.gamma.ppf(QUANTILES, a=3.0, scale=5.0), (len(y_cont), 1))
+    hist_cont = metrics.pit_histogram(y_cont, q_cont, bins=10, seed=7)
+    assert hist_cont.mean() == pytest.approx(1.0)
+    assert np.max(np.abs(hist_cont - 1.0)) < 0.08
+
+    # 2. Degenerada toda em zero (municípios pequenos silenciosos) -> uniforme exata em [0, 1]
+    y_zero = np.zeros(25_000)
+    q_zero = np.zeros((25_000, len(QUANTILES)))
+    hist_zero = metrics.pit_histogram(y_zero, q_zero, bins=10, seed=7)
+    assert np.max(np.abs(hist_zero - 1.0)) < 0.06
+
+    # 3. Invariância estrita a transformações monótonas crescentes (log1p)
+    assert metrics.pit_values(np.log1p(y_cont), np.log1p(q_cont), seed=7) == pytest.approx(
+        metrics.pit_values(y_cont, q_cont, seed=7)
+    )
+
+
+def test_pr_curve_properties():
+    scores = np.array([0.95, 0.80, 0.60, 0.40, 0.10])
+    labels = np.array([1, 1, 0, 1, 0], dtype=bool)
+    rec, prec = metrics.pr_curve(labels, scores, n_points=11)
+    assert len(rec) == 11 and len(prec) == 11
+    assert rec[0] == 0.0 and rec[-1] == 1.0
+    # Envelope é não crescente e termina acima ou igual à prevalência (3/5 = 0.6)
+    assert (np.diff(prec) <= 1e-12).all()
+    assert prec[0] == pytest.approx(1.0)
+    assert prec[-1] >= 0.6 - 1e-12
+    _, empty_prec = metrics.pr_curve(np.zeros(4, dtype=bool), np.ones(4), n_points=5)
+    assert np.isnan(empty_prec).all()

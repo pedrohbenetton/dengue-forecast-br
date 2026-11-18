@@ -9,6 +9,7 @@ uv run --group gnn python -m dengue_forecast.backtest --models gnn,gnn_nograph \
     --seasons 2022 --forecast-dir data/forecasts/val          # validação 2021-22
 uv run --group gnn python -m dengue_forecast.backtest \
     --models naive,naive_level,lgbm,gnn,gnn_nograph --out-dir reports/fase4
+uv run python -m dengue_forecast.viz.phase4
 ```
 
 Tabelas completas em [`fase4/`](fase4/) (WIS relativo calculado contra `naive`).
@@ -56,6 +57,8 @@ Na validação o grafo ganhava cerca de 2% em h=8, do mesmo tamanho da variaçã
 
 ## Resultado no teste (2022-23 a 2025-26)
 
+![GNN vs controle sem grafo](figures/fase4_grafo_vs_controle.png)
+
 | h | WIS lgbm | WIS gnn | WIS gnn_nograph | PR-AUC lgbm | PR-AUC gnn | PR-AUC gnn_nograph |
 |---|---|---|---|---|---|---|
 | 1 | 1,799 | 1,823 | 1,786 | 0,901 | 0,903 | 0,903 |
@@ -79,6 +82,8 @@ WIS em h=8 por temporada:
 - **A rede ganha do LightGBM onde há surto**: 9% a 15% em h=8 em 2022-23 e 2023-24, e 14% a 17%
   nos municípios acima de 500 mil habitantes. Nas duas temporadas calmas o LightGBM é igual ou
   ligeiramente melhor.
+
+![Skill por porte na fase 4](figures/fase4_skill_por_porte.png)
 - **Calibração**: a cobertura de 90% fica em 91,5% a 93,7% no agregado para os três, e cai para
   cerca de 87% em 2023-24 h=8 também nos três. O intervalo de 50% da rede cobre 56% a 62%
   (LightGBM: 63% a 69%).

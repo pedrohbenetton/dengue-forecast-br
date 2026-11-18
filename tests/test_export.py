@@ -48,6 +48,17 @@ def test_export_map_layers(toy_data, forecasts, tmp_path):
     p = np.fromfile(tmp_path / "map" / "p_h1.bin", dtype=np.uint8)
     assert p.size == n_weeks * n_geo and (p <= 254).all()
 
+    err = np.fromfile(tmp_path / "map" / "err_h8.bin", dtype=np.uint8).reshape(n_weeks, n_geo)
+    assert err.shape == (n_weeks, n_geo)
+    # Resíduo zero dá exatamente RES_ZERO (127); subestimação > 127, superestimação < 127
+    assert export.encode_residual([50.0, 200.0, 10.0, np.nan], [50.0, 20.0, 100.0, 5.0]).tolist()[
+        0
+    ] == export.RES_ZERO
+    sample_res = export.encode_residual([200.0, 10.0, np.nan], [20.0, 100.0, 5.0])
+    assert sample_res[0] > export.RES_ZERO
+    assert sample_res[1] < export.RES_ZERO
+    assert sample_res[2] == 255
+
 
 def test_export_fancharts(toy_data, forecasts, tmp_path):
     paths = export.export_fancharts(forecasts, toy_data, tmp_path, horizons=(1, 8))
@@ -103,3 +114,54 @@ def test_export_municipalities(toy_data, tmp_path):
     assert records[0]["name"] == "M0" and records[0]["population"] == 3000
     assert records[5]["name"] == str(toy_data.geocodes[5])  # sem nome: usa o geocode
     assert records[5]["region"] == "Sudeste"
+
+
+def test_export_diagnostics(toy_data, forecasts, tmp_path):
+    names = pd.DataFrame(
+        {
+            "geocode": toy_data.geocodes,
+            "name": [f"M{i}" for i in range(6)],
+            "uf": "SP",
+            "region": toy_data.region,
+        }
+    )
+    fdir = tmp_path / "forecasts"
+    (fdir / "scored").mkdir(parents=True)
+    forecasts.to_parquet(fdir / "naive_level_2023.parquet", index=False)
+    forecasts.to_parquet(fdir / "lgbm_cqr_level_2023.parquet", index=False)
+    backtest.score(forecasts).assign(model="lgbm_cqr_level").to_parquet(
+        fdir / "scored" / "lgbm_cqr_level.parquet", index=False
+    )
+
+    reports = tmp_path / "reports"
+    (reports / "fase3").mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "model": ["naive_level", "lgbm_cqr_level"],
+            "band": ["<5 mil", "<5 mil"],
+            "horizon": [8, 8],
+            "wis": [1.2, 0.9],
+            "wis_log": [0.2, 0.15],
+            "mae": [1.5, 1.1],
+            "cov90": [0.94, 0.92],
+        }
+    ).to_csv(reports / "fase3" / "por_faixa.csv", index=False)
+
+    diag = export.export_diagnostics(
+        forecasts,
+        toy_data,
+        names,
+        tmp_path / "diagnostics.json",
+        reports_dir=reports,
+        forecast_dir=fdir,
+        seasons=(2023,),
+    )
+    assert "stratified" in diag and len(diag["stratified"]["by_band"]) == 2
+    by_model = {r["model"]: r for r in diag["stratified"]["by_band"]}
+    assert by_model["lgbm_cqr_level"]["rel_wis"] == pytest.approx(0.75)
+    assert len(diag["uf_skill"]["ufs"]) == 1
+    assert len(diag["pit"]["models"]) == 2
+    assert len(diag["pr_curves"]["models"]) == 1
+    assert "8" in diag["error_analysis"]["regimes_by_horizon"]
+    shares = [r["share"] for r in diag["error_analysis"]["regimes_by_horizon"]["8"]]
+    assert sum(shares) == pytest.approx(1.0, abs=1e-3)

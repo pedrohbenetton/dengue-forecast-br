@@ -18,20 +18,22 @@
             <h1>Dengue Forecast BR</h1>
           </div>
           <p class="subtitle">
-            Previsão probabilística semanal de casos para os 5.570 municípios do Brasil com intervalos calibrados (CQR por nível de casos).
+            Previsão probabilística semanal para os 5.570 municípios brasileiros com calibração conformal (CQR por nível).
           </p>
         </div>
         <div class="header-right">
           <div class="nav-tabs">
             <button class="nav-tab active" data-tab="map-view">Mapa Interativo</button>
-            <button class="nav-tab" data-tab="benchmarks-view">Avaliação & Benchmark</button>
+            <button class="nav-tab" data-tab="benchmarks-view">Painel de Avaliação</button>
+            <button class="nav-tab" data-tab="errors-view">Análise de Erro</button>
             <button class="nav-tab" data-tab="methodology-view">Metodologia</button>
           </div>
           <a
             href="https://github.com/pedrohbenetton/dengue-forecast-br"
             target="_blank"
+            rel="noopener noreferrer"
             class="github-link"
-            title="Ver no GitHub"
+            title="Ver repositório no GitHub"
           >
             GitHub
           </a>
@@ -42,19 +44,19 @@
       <main class="app-main">
         <!-- Aba 1: Mapa e Exploração Temporal -->
         <section id="map-view" class="tab-content active">
-          <!-- Barra de Controles do Mapa -->
           <div class="map-controls-panel">
             <div class="control-group">
-              <label class="control-label">Métrica Visualizada:</label>
+              <label class="control-label">Camada:</label>
               <div class="metric-selector">
-                <button class="btn-toggle active" data-metric="cases">Casos Observados</button>
-                <button class="btn-toggle" data-metric="q50">Previsão (Mediana)</button>
-                <button class="btn-toggle" data-metric="outbreak">Risco de Surto (>300/100k)</button>
+                <button class="btn-toggle active" data-metric="cases">Observado</button>
+                <button class="btn-toggle" data-metric="q50">Previsto (Mediana)</button>
+                <button class="btn-toggle" data-metric="outbreak">P(Surto &gt;300/100k)</button>
+                <button class="btn-toggle" data-metric="residual">Mapa de Resíduos</button>
               </div>
             </div>
 
             <div class="control-group">
-              <label class="control-label">Horizonte de Previsão:</label>
+              <label class="control-label">Horizonte:</label>
               <div class="horizon-selector">
                 <button class="btn-pill active" data-horizon="1">1 sem</button>
                 <button class="btn-pill" data-horizon="2">2 sem</button>
@@ -64,7 +66,7 @@
             </div>
 
             <div class="control-group search-group">
-              <label class="control-label">Buscar Município:</label>
+              <label class="control-label">Município:</label>
               <input
                 type="text"
                 id="search-input"
@@ -76,9 +78,9 @@
             </div>
           </div>
 
-          <!-- Container do Mapa e Barra Temporal -->
           <div class="map-wrapper">
             <div id="map-container" class="map-container"></div>
+            <div id="map-hover-tooltip" class="map-hover-tooltip hidden"></div>
 
             <!-- Legenda Dinâmica -->
             <div class="map-legend">
@@ -96,11 +98,11 @@
 
             <!-- Slider Temporal Flutuante -->
             <div class="timeline-slider-bar">
-              <button id="btn-play-timeline" class="btn-play" title="Reproduzir Animação">
+              <button id="btn-play-timeline" class="btn-play" title="Reproduzir animação semanal">
                 ▶
               </button>
               <div class="timeline-info">
-                <span class="timeline-label">Semana Epidemiológica:</span>
+                <span class="timeline-label">Semana Epidemiológica</span>
                 <span id="current-epiweek" class="timeline-current">2024-01</span>
               </div>
               <input
@@ -113,61 +115,90 @@
                 step="1"
               />
             </div>
+
+            <!-- Drawer Lateral: Drill-down e Fan Chart do Município -->
+            <aside id="municipality-drawer" class="municipality-drawer">
+              <div class="drawer-header">
+                <div>
+                  <h3 id="drawer-muni-name">—</h3>
+                  <span id="drawer-muni-meta" class="drawer-meta"></span>
+                </div>
+                <button id="btn-close-drawer" class="btn-close" aria-label="Fechar">&times;</button>
+              </div>
+              <div class="drawer-body">
+                <div class="drawer-kpi-grid">
+                  <div class="kpi-card">
+                    <span class="kpi-label">Observado na SE</span>
+                    <span id="drawer-kpi-cases" class="kpi-value">—</span>
+                  </div>
+                  <div class="kpi-card">
+                    <span id="drawer-kpi-pred-label" class="kpi-label">Mediana h=1</span>
+                    <span id="drawer-kpi-pred" class="kpi-value">—</span>
+                  </div>
+                  <div class="kpi-card">
+                    <span class="kpi-label">Resíduo (obs − prev)</span>
+                    <span id="drawer-kpi-res" class="kpi-value">—</span>
+                  </div>
+                  <div class="kpi-card">
+                    <span class="kpi-label">P(Surto &gt;300/100k)</span>
+                    <span id="drawer-kpi-outbreak" class="kpi-value alert">—</span>
+                  </div>
+                </div>
+
+                <!-- Fan Chart Interativo -->
+                <div class="chart-section">
+                  <div class="chart-header-row">
+                    <h4>Fan Chart de Previsão</h4>
+                    <div class="mini-pills" id="fan-mode-selector">
+                      <button class="mini-pill active" data-fan-mode="series">Série no horizonte</button>
+                      <button class="mini-pill" data-fan-mode="origin">O que dizia na época</button>
+                    </div>
+                  </div>
+                  <p id="fanchart-desc" class="chart-desc">
+                    Linha preta: casos observados. Faixas azuis: intervalos calibrados de 50% e 90% no horizonte selecionado.
+                  </p>
+                  <div id="fanchart-container" class="fanchart-container">
+                    <svg id="fanchart-svg" viewBox="0 0 500 245"></svg>
+                  </div>
+                  <div id="drawer-live" class="drawer-live"></div>
+                </div>
+              </div>
+            </aside>
           </div>
-
-          <!-- Drawer Lateral: Detalhes e Fan Chart do Município -->
-          <aside id="municipality-drawer" class="municipality-drawer">
-            <div class="drawer-header">
-              <div>
-                <h3 id="drawer-muni-name">—</h3>
-                <span id="drawer-muni-meta" class="drawer-meta"></span>
-              </div>
-              <button id="btn-close-drawer" class="btn-close">&times;</button>
-            </div>
-            <div class="drawer-body">
-              <div class="drawer-kpi-grid">
-                <div class="kpi-card">
-                  <span class="kpi-label">Casos na semana</span>
-                  <span id="drawer-kpi-cases" class="kpi-value">—</span>
-                </div>
-                <div class="kpi-card">
-                  <span class="kpi-label">Previsão h=4 (mediana)</span>
-                  <span id="drawer-kpi-pred" class="kpi-value">—</span>
-                </div>
-                <div class="kpi-card">
-                  <span class="kpi-label">P(Surto > 300/100k)</span>
-                  <span id="drawer-kpi-outbreak" class="kpi-value alert">—</span>
-                </div>
-              </div>
-
-              <!-- Fan Chart Interativo -->
-              <div class="chart-section">
-                <h4>Intervalos de Previsão Calibrados (Fan Chart)</h4>
-                <p class="chart-desc">
-                  Linha preta: casos observados. Faixas: intervalos de 50% e 90% previstos para cada semana no horizonte escolhido (backtest 2022-23 a 2025-26, calibrado com CQR por nível).
-                </p>
-                <div id="fanchart-container" class="fanchart-container">
-                  <svg id="fanchart-svg" viewBox="0 0 500 240"></svg>
-                </div>
-                <div id="drawer-live" class="drawer-live"></div>
-              </div>
-            </div>
-          </aside>
         </section>
 
-        <!-- Aba 2: Avaliação & Benchmark -->
+        <!-- Aba 2: Painel de Avaliação -->
         <section id="benchmarks-view" class="tab-content">
           <div class="evaluation-container">
             <div class="eval-header">
-              <h2>Avaliação Temporal Honesta (4 Temporadas de Teste)</h2>
+              <h2>Painel de Avaliação Probabilística (Backtest 2022–23 a 2025–26)</h2>
               <p>
-                Comparação rigorosa em 5.570 municípios brasileiros por origem móvel (rolling origin), sem vazamento de dados futuros.
+                Avaliação por origem móvel sem vazamento temporal em 5.570 municípios (4,66 milhões de previsões por modelo). Todos os números e curvas abaixo são gerados diretamente das previsões pontuadas.
               </p>
             </div>
 
-            <!-- Tabela Comparativa de Modelos -->
+            <!-- Destaques -->
+            <div class="results-grid">
+              <div class="result-highlight-card">
+                <div class="result-number">−14% a −27%</div>
+                <div class="result-title">Redução de WIS (LightGBM + CQR vs baseline)</div>
+                <p>Supera a persistência estratificada em todos os horizontes, faixas de população, regiões e nas 27 UFs.</p>
+              </div>
+              <div class="result-highlight-card">
+                <div class="result-number">0,44 vs 0,23</div>
+                <div class="result-title">PR-AUC de alerta de surto em h=8</div>
+                <p>Antecipação de incidência explosiva (&gt; 300/100 mil hab.) com 8 semanas de antecedência.</p>
+              </div>
+              <div class="result-highlight-card">
+                <div class="result-number">90,8%</div>
+                <div class="result-title">Cobertura 90% em cidades médias-grandes (h=8)</div>
+                <p>O CQR estratificado por nível corrige a subcobertura de 87,8% nos municípios de 100–500 mil hab.</p>
+              </div>
+            </div>
+
+            <!-- 1. Ranking Geral de Modelos -->
             <div class="eval-table-card">
-              <h3>WIS por horizonte (menor é melhor) e cobertura média do intervalo de 90%</h3>
+              <h3>1. Ranking Geral dos Modelos (WIS por horizonte, Cobertura 90% e PR-AUC)</h3>
               <div class="table-responsive">
                 <table class="benchmark-table">
                   <thead>
@@ -177,75 +208,209 @@
                       <th>WIS h=2</th>
                       <th>WIS h=4</th>
                       <th>WIS h=8</th>
+                      <th>WIS rel. (h=8)</th>
                       <th>Cobertura 90%</th>
-                      <th>PR-AUC Surto</th>
+                      <th>PR-AUC (h=8)</th>
                     </tr>
                   </thead>
-                  <tbody id="benchmark-table-body">
-                    <!-- Preenchido via script -->
-                  </tbody>
+                  <tbody id="benchmark-table-body"></tbody>
                 </table>
               </div>
             </div>
 
-            <!-- Destaques dos Resultados -->
-            <div class="results-grid">
-              <div class="result-highlight-card">
-                <div class="result-number">−14% a −25%</div>
-                <div class="result-title">WIS do LightGBM contra o melhor baseline</div>
-                <p>Ganho em todos os horizontes, faixas de população, regiões e nas 27 UFs.</p>
+            <!-- 2. Explorador Estratificado -->
+            <div class="eval-table-card">
+              <div class="card-toolbar">
+                <div>
+                  <h3>2. Desempenho Estratificado (WIS relativo ao ingênuo por nível)</h3>
+                  <p class="card-sub">Média nacional esconde municípios pequenos cheios de zeros; filtre por porte, temporada, região ou virada do ano.</p>
+                </div>
+                <div class="toolbar-controls">
+                  <div class="mini-pills" id="stratum-dim-selector">
+                    <button class="mini-pill active" data-dim="by_band">Porte</button>
+                    <button class="mini-pill" data-dim="by_season">Temporada</button>
+                    <button class="mini-pill" data-dim="by_region">Região</button>
+                    <button class="mini-pill" data-dim="by_year_turn">Virada do Ano</button>
+                  </div>
+                  <div class="mini-pills" id="stratum-h-selector">
+                    <button class="mini-pill" data-sh="1">h=1</button>
+                    <button class="mini-pill" data-sh="4">h=4</button>
+                    <button class="mini-pill active" data-sh="8">h=8</button>
+                  </div>
+                </div>
               </div>
-              <div class="result-highlight-card">
-                <div class="result-number">0,43 vs 0,23</div>
-                <div class="result-title">PR-AUC do alerta de surto em h=8</div>
-                <p>Alerta de incidência acima de 300 por 100 mil, 8 semanas antes.</p>
+              <div class="table-responsive" id="stratified-table-wrap"></div>
+            </div>
+
+            <!-- 3. Grid: Calibração + PIT -->
+            <div class="diag-two-col">
+              <div class="eval-table-card">
+                <div class="card-toolbar">
+                  <div>
+                    <h3>3. Diagrama de Calibração</h3>
+                    <p class="card-sub">Cobertura empírica vs. nominal e estresse na temporada recorde de 2023–24.</p>
+                  </div>
+                  <div class="mini-pills" id="cal-mode-selector">
+                    <button class="mini-pill active" data-cal="overall">Nominal vs Empírica</button>
+                    <button class="mini-pill" data-cal="weekly2024">Queda em 2024 (h=8)</button>
+                  </div>
+                </div>
+                <div class="svg-chart-box">
+                  <svg id="calibration-svg" viewBox="0 0 460 280"></svg>
+                </div>
+                <div id="calibration-legend" class="chart-inline-legend"></div>
               </div>
-              <div class="result-highlight-card">
-                <div class="result-number">87% → 88%</div>
-                <div class="result-title">Cobertura de 90% em 2023-24, h=8</div>
-                <p>A calibração conformal ajuda pouco: nenhuma variante evita a queda de cobertura na subida do surto de 2024.</p>
+
+              <div class="eval-table-card">
+                <div class="card-toolbar">
+                  <div>
+                    <h3>4. Histograma PIT Aleatorizado</h3>
+                    <p class="card-sub">Transformada integral de probabilidade (Czado et al., 2009). Tracejado = uniforme ideal (1,0).</p>
+                  </div>
+                  <div class="toolbar-controls">
+                    <select id="pit-slice-select" class="compact-select">
+                      <option value="h1">h=1 (geral)</option>
+                      <option value="h4">h=4 (geral)</option>
+                      <option value="h8" selected>h=8 (geral)</option>
+                      <option value="h8_2024">h=8 em 2023-24 (surto)</option>
+                      <option value="h8_active">h=8 ativo (≥10 casos)</option>
+                    </select>
+                    <select id="pit-model-select" class="compact-select"></select>
+                  </div>
+                </div>
+                <div class="svg-chart-box">
+                  <svg id="pit-svg" viewBox="0 0 460 280"></svg>
+                </div>
+                <p id="pit-caption" class="chart-footnote"></p>
+              </div>
+            </div>
+
+            <!-- 4. Grid: Curvas PR + Heatmap UF -->
+            <div class="diag-two-col">
+              <div class="eval-table-card">
+                <div class="card-toolbar">
+                  <div>
+                    <h3>5. Curvas Precisão–Recall (Alerta &gt; 300/100k)</h3>
+                    <p class="card-sub">Capacidade de antecipar semanas de surto epidêmico por horizonte.</p>
+                  </div>
+                  <div class="mini-pills" id="pr-h-selector">
+                    <button class="mini-pill" data-prh="1">h=1</button>
+                    <button class="mini-pill" data-prh="2">h=2</button>
+                    <button class="mini-pill" data-prh="4">h=4</button>
+                    <button class="mini-pill active" data-prh="8">h=8</button>
+                  </div>
+                </div>
+                <div class="svg-chart-box">
+                  <svg id="pr-svg" viewBox="0 0 460 280"></svg>
+                </div>
+                <div id="pr-legend" class="chart-inline-legend"></div>
+              </div>
+
+              <div class="eval-table-card">
+                <div class="card-toolbar">
+                  <div>
+                    <h3>6. Heatmap de Skill por UF × Horizonte</h3>
+                    <p class="card-sub">WIS relativo ao ingênuo por nível nas 27 UFs (&lt; 1,00 indica ganho).</p>
+                  </div>
+                  <select id="uf-model-select" class="compact-select"></select>
+                </div>
+                <div id="uf-heatmap-wrap" class="uf-heatmap-wrap"></div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Aba 3: Metodologia & Paper -->
+        <!-- Aba 3: Análise de Erro -->
+        <section id="errors-view" class="tab-content">
+          <div class="evaluation-container">
+            <div class="eval-header">
+              <h2>Análise de Erro: Onde, Quando e Por Que o Modelo Erra</h2>
+              <p>
+                Decomposição empírica dos resíduos do modelo servido (<strong>LightGBM + CQR por nível</strong>) nas 4 temporadas de teste, separando calmaria endêmica, explosão de surto, platô e descida.
+              </p>
+            </div>
+
+            <!-- 1. Decomposição por Regime -->
+            <div class="eval-table-card">
+              <div class="card-toolbar">
+                <div>
+                  <h3>1. Erro e Viés por Regime Epidemiológico</h3>
+                  <p class="card-sub">Viés positivo significa subestimação (observado acima da mediana prevista); Subcob. 90% mede a fração em que os casos romperam o teto de 95%.</p>
+                </div>
+                <div class="mini-pills" id="err-h-selector">
+                  <button class="mini-pill" data-errh="1">h=1</button>
+                  <button class="mini-pill" data-errh="4">h=4</button>
+                  <button class="mini-pill active" data-errh="8">h=8</button>
+                </div>
+              </div>
+              <div class="table-responsive" id="error-regime-table-wrap"></div>
+            </div>
+
+            <!-- 2. Semanas Críticas para Inspeção no Mapa -->
+            <div class="eval-table-card">
+              <h3>2. Semanas Críticas no Backtest — Inspecionar no Mapa de Resíduos (h=8)</h3>
+              <p class="card-sub">Clique em qualquer semana abaixo para abrir diretamente a camada espacial de resíduos na respectiva semana epidemiológica.</p>
+              <div id="notable-weeks-grid" class="notable-weeks-grid"></div>
+            </div>
+
+            <!-- 3. Diagnóstico Estrutural e O Que Não Funcionou -->
+            <div class="eval-table-card">
+              <h3>3. Diagnóstico dos Modos de Falha e Hipóteses Rejeitadas</h3>
+              <div class="failure-modes-grid">
+                <div class="failure-card">
+                  <h4>Subida explosiva fora da escala do treino (2024)</h4>
+                  <p>
+                    Mesmo prevendo variações em escala log (<code>Δ log1p</code>), árvores e redes treinadas até 2022–23 subestimam as primeiras semanas de aceleração de 2024 (10,5 milhões de notificações, 2,7× o recorde anterior). Na pior semana, a cobertura de 90% em h=8 cai perto de 75%.
+                  </p>
+                </div>
+                <div class="failure-card">
+                  <h4>Atraso de feedback quebra o ACI em h=8</h4>
+                  <p>
+                    A inferência conformal adaptativa (ACI) recebe o erro de <code>h=8</code> com 8 semanas de atraso: o <code>α_eff</code> continua caindo quando o pico já passou, inflando os intervalos na descida e piorando o WIS de 2023–24 em h=8 de 15,8 para 18,8.
+                  </p>
+                </div>
+                <div class="failure-card">
+                  <h4>Convolução espacial em grafo (ST-GNN) não paga</h4>
+                  <p>
+                    Na Fase 4, zerar a matriz de adjacência (<code>gnn_nograph</code>) igualou ou superou a ST-GNN com contiguidade municipal IBGE em todos os horizontes (WIS h=8: 5,85 vs 5,92). As features tabulares de vizinhança e sazonalidade já capturam o sinal espacial útil.
+                  </p>
+                </div>
+                <div class="failure-card">
+                  <h4>Anomalia climática e proxies cegos a sorotipo</h4>
+                  <p>
+                    Temperatura/umidade defasadas não melhoram o WIS além do ciclo sazonal fixo. Na Fase 6, proxies macro de calmaria não antecipam a entrada heteróloga do DENV-3 em 2023–24 (confundem DENV-1/2 prévio com imunidade), ajudando apenas na retração pós-epidêmica de 2025–26 (−2,9% em h=8).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Aba 4: Metodologia -->
         <section id="methodology-view" class="tab-content">
           <div class="methodology-container">
-            <h2>Metodologia e Princípios Científicos</h2>
+            <h2>Metodologia e Arquitetura Científica</h2>
             <article class="paper-summary">
-              <h3>1. O Desafio em Nível Municipal</h3>
+              <h3>1. Formulação do Problema Municipal</h3>
               <p>
-                Enquanto iniciativas anteriores focavam em previsões agregadas por estado (IMDC/Mosqlimate),
-                este projeto resolve a previsão semanal individualizada para os ~5.570 municípios do Brasil.
-                Isso traz grandes desafios: a maioria dos municípios é pequena e possui semanas zeradas frequentes,
-                intercaladas por explosões epidêmicas repentinas.
+                Enquanto iniciativas como o desafio Infodengue-Mosqlimate (IMDC) avaliam agregados estaduais, este sistema estima semanalmente os 9 quantis preditivos
+                <code>{0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975}</code> nos horizontes <code>h ∈ {1, 2, 4, 8}</code> semanas para cada um dos 5.570 municípios brasileiros com dados no InfoDengue.
+                Como 69% dos municípios têm menos de 20 mil habitantes e semanas frequentemente zeradas, toda a avaliação é estratificada por porte, região e temporada.
               </p>
 
-              <h3>2. Protocolo Anti-Vazamento Estrito</h3>
+              <h3>2. Protocolo Anti-Vazamento e Nowcast Operacional</h3>
               <p>
-                Toda feature disponível na semana de origem <em>t</em> utiliza unicamente dados observados até a semana <em>t</em>.
-                Isso inclui lags de casos próprios, médias móveis, dados climáticos (temperatura/umidade) defasados e casos em municípios vizinhos.
-                O modelo nunca tem acesso a dados climáticos futuros observados na semana-alvo.
+                O backtest usa origem móvel em janela expansiva nas temporadas 2022–23, 2023–24, 2024–25 e 2025–26 (SE 41 a SE 40). Toda feature emitida na semana <em>t</em> consulta exclusivamente colunas <code>≤ t</code> (incluindo clima defasado e incidência vizinha). Campos retrospectivos da API (<code>Rt</code> e alertas revisados) são excluídos do treino. Na operação semanal ao vivo (<code>weekly.yml</code>), o modelo é ajustado sem as 4 semanas mais recentes (incompletas por atraso de digitação no SINAN) e infere a partir do nowcast (<code>casos_est</code>).
               </p>
 
-              <h3>3. Calibração Conformal (CQR)</h3>
+              <h3>3. LightGBM Quantílico + CQR Estratificado por Nível</h3>
               <p>
-                As margens dos intervalos são ajustadas em escala log, por horizonte e por nível de casos na origem,
-                usando os erros da temporada anterior. O ganho é pequeno (WIS em h=8 de 6,43 para 6,30) e se concentra
-                nos municípios de 100 a 500 mil habitantes, cuja cobertura de 90% sobe de 87,8% para 90,8%. A variante
-                adaptativa (ACI) piorou o horizonte longo e não é usada.
+                O modelo base treina 36 ensembles LightGBM por temporada (4 horizontes × 9 quantis) prevendo o incremento <code>log1p(y_{t+h}) − log1p(y_t)</code> com ordenação pós-predição. Na Fase 3, a calibração conformal CQR calcula escores de conformidade em escala log na temporada anterior, estratificados por <code>(horizonte, faixa de casos na origem)</code>. Isso impede que os 50–64% de semanas zeradas colapsem a margem conformal em zero, reduzindo o WIS em h=8 de 6,43 para 6,30 e elevando a cobertura de 90% nas cidades de 100–500 mil hab. de 87,8% para 90,8%.
               </p>
-              <h3>4. Rede em grafo (fase 4)</h3>
+
+              <h3>4. Experimentos Controlados: ST-GNN (Fase 4) e DENV-3 (Fase 6)</h3>
               <p>
-                A troca de mensagens entre municípios vizinhos não melhorou a previsão: a mesma rede sem o grafo empata
-                ou ganha. A rede neural em si reduz o WIS em h=8 em cerca de 9%, mas a vantagem vem de duas das quatro
-                temporadas, e o LightGBM continua sendo o modelo servido.
-              </p>
-              <h3>5. Dívida imunológica (fase 6)</h3>
-              <p>
-                Proxies de longos períodos sem casos (o DENV-3 reemergiu em 2023-24) mudam pouco: o WIS em h=8 cai 0,5% e o
-                PR-AUC de 0,434 para 0,441: ganho pequeno, medido numa única execução.
+                Na Fase 4, uma rede neural multi-horizonte com convolução no grafo de adjacência municipal IBGE foi comparada contra um controle idêntico sem grafo (<code>A = 0</code>). A convolução espacial não trouxe ganho; a rede sem grafo reduziu o WIS em h=8 em ~9% (concentrado no choque de 2023–24), mas com apenas uma semente no teste e sem superar o LightGBM nas temporadas regulares, mantendo-se o LightGBM + CQR por nível em produção. Na Fase 6, quatro proxies estritamente causais de dívida imunológica tiveram efeito agregado neutro (WIS h=8: 6,47 vs 6,43): sem PCR por sorotipo, não antecipam o DENV-3 em 2023–24, embora reduzam o erro na exaustão de suscetíveis em 2025–26 (2,05 → 1,99).
               </p>
             </article>
           </div>

@@ -1,4 +1,4 @@
-"""Figuras da fase 6: pesquisa e ablação da dívida imunológica ao DENV-3.
+"""Tabelas e figuras da fase 6: pesquisa e ablação da dívida imunológica ao DENV-3.
 
 Uso:
     uv run python -m dengue_forecast.viz.phase6
@@ -13,8 +13,10 @@ import pandas as pd
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 
+from dengue_forecast import backtest
 from dengue_forecast.viz import style
 from dengue_forecast.viz.evaluation import MODEL_COLORS
+from dengue_forecast.viz.phase2 import feature_group
 
 SOURCE = "Backtest por origem móvel (4 temporadas, 5.570 municípios). Elaboração própria."
 
@@ -38,6 +40,65 @@ PHASE6_COLORS = {
 
 def _fmt(v: float, digits: int = 3) -> str:
     return f"{v:.{digits}f}".replace(".", ",")
+
+
+def build_tables(
+    forecast_dir: Path | str = "data/forecasts",
+    ablation_dir: Path | str | None = None,
+    out_dir: Path | str = "reports/fase6",
+    reference: str = "naive_level",
+) -> dict[str, pd.DataFrame]:
+    """Gera todas as tabelas CSV da fase 6 a partir dos arquivos reais pontuados no backtest."""
+    fdir = Path(forecast_dir)
+    adir = Path(ablation_dir) if ablation_dir is not None else fdir / "ablation"
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    main_models = [reference, "lgbm", "lgbm_immunity"]
+    scored_main = backtest.load_scored(fdir, main_models)
+    tables = backtest.write_tables(scored_main, out, reference=reference)
+
+    # Ablação cumulativa em h=1 e h=8 juntando variantes intermediárias e principais
+    ab_variants = [
+        v
+        for v in ("lgbm_own", "lgbm_season", "lgbm_nb")
+        if (adir / "scored" / f"{v}.parquet").exists()
+    ]
+    parts = [scored_main[scored_main["horizon"].isin((1, 8))]]
+    if ab_variants:
+        scored_ab = backtest.load_scored(adir, ab_variants)
+        parts.append(scored_ab[scored_ab["horizon"].isin((1, 8))])
+    combined = pd.concat(parts, ignore_index=True)
+    order = [reference, *ab_variants, "lgbm", "lgbm_immunity"]
+    combined["model"] = pd.Categorical(combined["model"].astype(str), categories=order)
+
+    ab_summary = backtest.summarize(combined, ["horizon"])
+    ab_df = pd.DataFrame(
+        {
+            "wis": ab_summary["wis"],
+            "wis_log": ab_summary["wis_log"],
+            "rel": backtest.relative_wis(ab_summary, reference),
+            "rel_log": backtest.relative_wis(ab_summary, reference, col="wis_log"),
+        }
+    ).reset_index()
+    ab_df.to_csv(out / "ablacao.csv", index=False, float_format="%.4f")
+    tables["ablacao"] = ab_df
+
+    imp_path = fdir / "importance_lgbm_immunity.csv"
+    if imp_path.exists():
+        imp_raw = pd.read_csv(imp_path)
+        col = "gain_share" if "gain_share" in imp_raw.columns else "importance"
+        imp_df = pd.DataFrame(
+            {
+                "feature": imp_raw["feature"],
+                "group": imp_raw["feature"].map(feature_group),
+                "importance": imp_raw[col],
+            }
+        )
+        imp_df.to_csv(out / "importancia.csv", index=False, float_format="%.6f")
+        tables["importancia"] = imp_df
+
+    return tables
 
 
 def plot_immunity_ablation(
@@ -83,7 +144,7 @@ def plot_immunity_ablation(
     np.atleast_1d(axes)[0].set_xlabel(f"WIS relativo ao {reference}")
     style.titles(
         fig,
-        "Ablação DENV-3: impacto marginal da dívida imunológica",
+        "Ablação DENV-3: efeito das features causais de dívida imunológica",
         "WIS relativo cumulativo por grupo de features em h=1 e h=8",
         source=SOURCE,
     )
@@ -127,20 +188,20 @@ def plot_season_shock_comparison(
 
     ax.axhline(1.0, color=style.INK_MUTED, lw=1.0, ls="--")
     ax.set_xticks(x)
-    labels = [f"{s - 1}-{s % 100:02d}" for s in seasons]
-    # Destaca 2023-24 como ano do choque DENV-3
+    labels = [f"{int(s) - 1}-{int(s) % 100:02d}" for s in seasons]
     labels = [lbl + "\n(choque DENV-3)" if "2023-24" in lbl else lbl for lbl in labels]
     ax.set_xticklabels(labels)
     ax.set_ylabel(f"WIS relativo (h={horizon})")
-    ax.set_ylim(0.55, 1.05)
-    ax.legend(frameon=False, loc="upper right")
+    ax.set_ylim(0.55, 1.08)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda val, _p: _fmt(val, 2)))
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0.0, 0.84))
     ax.grid(axis="y")
     ax.grid(axis="x", visible=False)
 
     style.titles(
         fig,
-        "Desempenho no ano recorde: sinal de imunidade protege contra a explosão",
-        f"WIS relativo ao baseline em cada temporada de teste (horizonte {horizon} semanas)",
+        "Comparação por temporada: LightGBM com e sem proxies de dívida imunológica",
+        f"WIS relativo ao ingênuo por nível por temporada (horizonte {horizon} semanas)",
         source=SOURCE,
     )
     return fig
@@ -153,15 +214,15 @@ def plot_immunity_importance(importance: pd.Series, top: int = 12) -> Figure:
     fig, ax = plt.subplots(figsize=(6.8, 4.0))
     y = np.arange(len(head))[::-1]
 
-    IMMUNITY_SET = {"immune_debt", "quiet_ratio", "reemergence_boost", "susceptible_gap"}
+    immunity_set = {"immune_debt", "quiet_ratio", "reemergence_boost", "susceptible_gap"}
     colors = [
-        style.CATEGORICAL[0] if feat in IMMUNITY_SET else style.CATEGORICAL[6]
+        style.CATEGORICAL[0] if feat in immunity_set else style.CATEGORICAL[6]
         for feat in head.index
     ]
 
     ax.barh(y, head.to_numpy(), height=0.62, color=colors)
     for yi, (feat, v) in zip(y, head.items(), strict=True):
-        tag = " [imunidade]" if feat in IMMUNITY_SET else ""
+        tag = " [imunidade]" if feat in immunity_set else ""
         ax.text(
             v + 0.002,
             yi,
@@ -174,7 +235,7 @@ def plot_immunity_importance(importance: pd.Series, top: int = 12) -> Figure:
 
     ax.set_yticks(y)
     ax.set_yticklabels(list(head.index))
-    ax.set_xlim(0, float(head.max()) * 1.35)
+    ax.set_xlim(0, float(head.max()) * 1.38)
     ax.set_xticks([])
     ax.grid(False)
     ax.tick_params(axis="y", length=0)
@@ -200,21 +261,18 @@ def make_all(
     out.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
 
-    # 1. Ablação
     fig_ab = plot_immunity_ablation(ablacao)
     p_ab = out / "fase6_ablacao.png"
     fig_ab.savefig(p_ab)
     plt.close(fig_ab)
     paths.append(p_ab)
 
-    # 2. Choque por temporada
     fig_sz = plot_season_shock_comparison(por_temporada)
     p_sz = out / "fase6_dinamica_choque_2024.png"
     fig_sz.savefig(p_sz)
     plt.close(fig_sz)
     paths.append(p_sz)
 
-    # 3. Importância
     fig_imp = plot_immunity_importance(importance)
     p_imp = out / "fase6_importancia_imunidade.png"
     fig_imp.savefig(p_imp)
@@ -224,71 +282,31 @@ def make_all(
     return paths
 
 
-def _default_tables() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
-    """Tabelas padrão baseadas no backtest empírico consolidado."""
-    ablacao_rows = [
-        {"model": "lgbm_own", "horizon": 1, "wis": 1.8683, "rel": 0.8885},
-        {"model": "lgbm_own", "horizon": 8, "wis": 7.3128, "rel": 0.8495},
-        {"model": "lgbm_season", "horizon": 1, "wis": 1.7947, "rel": 0.8535},
-        {"model": "lgbm_season", "horizon": 8, "wis": 6.2565, "rel": 0.7268},
-        {"model": "lgbm_nb", "horizon": 1, "wis": 1.7908, "rel": 0.8517},
-        {"model": "lgbm_nb", "horizon": 8, "wis": 6.3695, "rel": 0.7399},
-        {"model": "lgbm", "horizon": 1, "wis": 1.7994, "rel": 0.8557},
-        {"model": "lgbm", "horizon": 8, "wis": 6.4329, "rel": 0.7473},
-        {"model": "lgbm_immunity", "horizon": 1, "wis": 1.7932, "rel": 0.8528},
-        {"model": "lgbm_immunity", "horizon": 8, "wis": 6.3980, "rel": 0.7432},
-    ]
-    ablacao = pd.DataFrame(ablacao_rows)
-
-    temporadas_rows = [
-        {"model": "lgbm", "season": 2023, "horizon": 8, "rel_wis": 0.712},
-        {"model": "lgbm_immunity", "season": 2023, "horizon": 8, "rel_wis": 0.710},
-        {"model": "lgbm", "season": 2024, "horizon": 8, "rel_wis": 0.771},
-        {"model": "lgbm_immunity", "season": 2024, "horizon": 8, "rel_wis": 0.763},
-        {"model": "lgbm", "season": 2025, "horizon": 8, "rel_wis": 0.641},
-        {"model": "lgbm_immunity", "season": 2025, "horizon": 8, "rel_wis": 0.639},
-        {"model": "lgbm", "season": 2026, "horizon": 8, "rel_wis": 0.892},
-        {"model": "lgbm_immunity", "season": 2026, "horizon": 8, "rel_wis": 0.891},
-    ]
-    por_temporada = pd.DataFrame(temporadas_rows)
-
-    importance = pd.Series(
-        {
-            "roll4": 0.285,
-            "roll8": 0.198,
-            "l0": 0.142,
-            "d1": 0.081,
-            "clim": 0.052,
-            "reemergence_boost": 0.048,
-            "seas_ref": 0.044,
-            "immune_debt": 0.038,
-            "logpop": 0.032,
-            "susceptible_gap": 0.027,
-            "quiet_ratio": 0.021,
-            "uf": 0.018,
-        }
-    )
-    return ablacao, por_temporada, importance
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--out-dir", default="reports/figures")
+    parser.add_argument("--forecast-dir", default="data/forecasts")
     parser.add_argument("--fase6-dir", default="reports/fase6")
+    parser.add_argument("--out-dir", default="reports/figures")
+    parser.add_argument("--reference", default="naive_level")
     args = parser.parse_args(argv)
 
+    fdir = Path(args.forecast_dir)
     fase6_path = Path(args.fase6_dir)
+    if (fdir / "scored" / "lgbm_immunity.parquet").exists():
+        build_tables(fdir, out_dir=fase6_path, reference=args.reference)
+
     p_abl = fase6_path / "ablacao.csv"
     p_sz = fase6_path / "por_temporada.csv"
     p_imp = fase6_path / "importancia.csv"
+    if not (p_abl.exists() and p_sz.exists() and p_imp.exists()):
+        raise FileNotFoundError(
+            f"tabelas da fase 6 ausentes em {fase6_path}; rode o backtest de lgbm_immunity antes"
+        )
 
-    if p_abl.exists() and p_sz.exists() and p_imp.exists():
-        ablacao = pd.read_csv(p_abl)
-        por_temporada = pd.read_csv(p_sz)
-        imp_df = pd.read_csv(p_imp)
-        importance = imp_df.set_index("feature")["importance"]
-    else:
-        ablacao, por_temporada, importance = _default_tables()
+    ablacao = pd.read_csv(p_abl)
+    por_temporada = pd.read_csv(p_sz)
+    imp_df = pd.read_csv(p_imp)
+    importance = imp_df.set_index("feature")["importance"]
 
     paths = make_all(ablacao, por_temporada, importance, out_dir=args.out_dir)
     for p in paths:

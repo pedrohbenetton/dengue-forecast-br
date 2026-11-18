@@ -38,7 +38,11 @@ jobs:
         if: inputs.live_artifact == ''
         run: |
           url="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/data/live.json"
-          curl -fsSL "$url" -o web/public/data/live.json || echo "sem previsão ao vivo publicada"
+          if curl -fsSL "$url" -o /tmp/live.json; then
+            mv /tmp/live.json web/public/data/live.json
+          else
+            echo "mantendo live.json empacotado em site/history.tar.gz"
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22
