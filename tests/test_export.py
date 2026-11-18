@@ -165,3 +165,38 @@ def test_export_diagnostics(toy_data, forecasts, tmp_path):
     assert "8" in diag["error_analysis"]["regimes_by_horizon"]
     shares = [r["share"] for r in diag["error_analysis"]["regimes_by_horizon"]["8"]]
     assert sum(shares) == pytest.approx(1.0, abs=1e-3)
+
+
+def test_clean_and_num_reject_non_finite_and_archive_is_strict_json():
+    assert export._clean(np.array([1.25, np.nan, np.inf, -np.inf])) == [1.2, None, None, None]
+    assert export._num(float("inf")) is None
+    assert export._num(float("-inf")) is None
+    assert export._num(float("nan")) is None
+
+    import tarfile
+    from pathlib import Path
+
+    tar_path = Path("site/history.tar.gz")
+    if not tar_path.exists():
+        pytest.skip("site/history.tar.gz ausente")
+
+    def reject_nan_const(c):
+        raise AssertionError(f"JSON inválido com constante {c}")
+
+    with tarfile.open(tar_path, "r:gz") as tf:
+        members = {m.lstrip("./"): m for m in tf.getnames()}
+        for required in (
+            "municipalities.json",
+            "benchmarks.json",
+            "diagnostics.json",
+            "live.json",
+            "map/meta.json",
+            "map/obs.bin",
+            "map/err_h8.bin",
+            "fan/3552205.json",
+        ):
+            assert required in members, f"{required} ausente em site/history.tar.gz"
+            if required.endswith(".json"):
+                raw = tf.extractfile(members[required]).read().decode("utf-8")
+                json.loads(raw, parse_constant=reject_nan_const)
+

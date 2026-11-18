@@ -17,4 +17,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd web && npm ci && npm run typecheck && npm run build
+      - run: mkdir -p web/public/data && tar xzf site/history.tar.gz -C web/public/data
+      - run: cd web && npm ci && npm test && npm run typecheck && npm run build

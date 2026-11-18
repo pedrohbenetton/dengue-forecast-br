@@ -84,7 +84,9 @@ def export_live(forecasts: pd.DataFrame, data: PanelData, out_file: Path | str) 
         record[f"h{h}"]["p"] = sub["p_outbreak"].round(3).tolist()
     out = Path(out_file)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(record, separators=(",", ":")), encoding="utf-8")
+    out.write_text(
+        json.dumps(record, separators=(",", ":"), allow_nan=False), encoding="utf-8"
+    )
     return json.loads(out.read_text(encoding="utf-8"))
 
 

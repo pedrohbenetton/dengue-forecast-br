@@ -139,12 +139,12 @@ def export_map(
         "res_zero": RES_ZERO,
         "latest_week": int(weeks[-1]),
     }
-    (out / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    (out / "meta.json").write_text(json.dumps(meta, allow_nan=False), encoding="utf-8")
     return meta
 
 
 def _clean(values: np.ndarray, digits: int = 1) -> list:
-    return [None if math.isnan(v) else round(float(v), digits) for v in values]
+    return [None if not math.isfinite(float(v)) else round(float(v), digits) for v in values]
 
 
 def export_fancharts(
@@ -169,7 +169,9 @@ def export_fancharts(
         for h in horizons:
             record[f"h{h}"] = {q: _clean(grids[h][q][:, g]) for q in FAN_QUANTILES}
         path = out / f"{int(geocode)}.json"
-        path.write_text(json.dumps(record, separators=(",", ":")), encoding="utf-8")
+        path.write_text(
+            json.dumps(record, separators=(",", ":"), allow_nan=False), encoding="utf-8"
+        )
         paths.append(path)
     return paths
 
@@ -184,7 +186,10 @@ def _read_all(paths, keys: list[str] | None = None) -> pd.DataFrame:
 
 
 def _num(value, digits: int = 4) -> float | None:
-    return None if value is None or pd.isna(value) else round(float(value), digits)
+    if value is None or pd.isna(value):
+        return None
+    fv = float(value)
+    return None if not math.isfinite(fv) else round(fv, digits)
 
 
 def export_benchmarks(
@@ -219,7 +224,9 @@ def export_benchmarks(
     result = {"rows": rows, "reference": reference, "source": "backtest 2022-23 a 2025-26"}
     out = Path(out_file)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
+    out.write_text(
+        json.dumps(result, ensure_ascii=False, indent=1, allow_nan=False), encoding="utf-8"
+    )
     return result
 
 
@@ -601,7 +608,10 @@ def export_diagnostics(
     }
     out = Path(out_file)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    out.write_text(
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False),
+        encoding="utf-8",
+    )
     return payload
 
 
@@ -622,7 +632,7 @@ def export_municipalities(data: PanelData, names: pd.DataFrame, out_file: Path |
         )
     out = Path(out_file)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    out.write_text(json.dumps(records, ensure_ascii=False, allow_nan=False), encoding="utf-8")
     return records
 
 
