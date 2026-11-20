@@ -178,9 +178,11 @@ function binResponse(bytes: number[]): Response {
   return new Response(new Uint8Array(bytes).buffer, { status: 200 });
 }
 
-async function flushPromises(ticks = 6): Promise<void> {
-  for (let i = 0; i < ticks; i++) {
-    await Promise.resolve();
+// Espera voltas completas do event loop (macrotarefas), não só microtarefas: Response.json()
+// leva um número de ticks que muda entre versões do Node (22 no CI, 24 local).
+async function flushPromises(rounds = 6): Promise<void> {
+  for (let i = 0; i < rounds; i++) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
 }
 
