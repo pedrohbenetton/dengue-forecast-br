@@ -1,3 +1,4 @@
+import { T } from "./theme";
 import {
   MODEL_COLORS,
   SHORT_LABELS,
@@ -67,14 +68,14 @@ export function buildRollingSeriesSvg(
   ticks.forEach((v) => {
     const y = getY(v);
     elements.push(
-      `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" stroke="#e1e0d9" stroke-width="1" />`,
-      `<text x="${padLeft - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#898781">${formatNumber(v, 0)}</text>`
+      `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" stroke="${T.grid}" stroke-width="1" />`,
+      `<text x="${padLeft - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="${T.inkMuted}">${formatNumber(v, 0)}</text>`
     );
   });
 
   const axisY = padTop + plotHeight;
   elements.push(
-    `<line x1="${padLeft}" y1="${axisY}" x2="${width - padRight}" y2="${axisY}" stroke="#c3c2b7" stroke-width="1" />`
+    `<line x1="${padLeft}" y1="${axisY}" x2="${width - padRight}" y2="${axisY}" stroke="${T.axis}" stroke-width="1" />`
   );
 
   for (let i = 0; i < n; i++) {
@@ -83,8 +84,8 @@ export function buildRollingSeriesSvg(
     if ((prevYr !== null && yr !== prevYr) || (i === 0 && data.weeks[0] % 100 <= 5)) {
       const x = getX(i);
       elements.push(
-        `<line x1="${x.toFixed(1)}" y1="${axisY}" x2="${x.toFixed(1)}" y2="${axisY + 4}" stroke="#c3c2b7" stroke-width="1" />`,
-        `<text x="${x.toFixed(1)}" y="${axisY + 15}" text-anchor="middle" font-size="10" fill="#898781">${yr}</text>`
+        `<line x1="${x.toFixed(1)}" y1="${axisY}" x2="${x.toFixed(1)}" y2="${axisY + 4}" stroke="${T.axis}" stroke-width="1" />`,
+        `<text x="${x.toFixed(1)}" y="${axisY + 15}" text-anchor="middle" font-size="10" fill="${T.inkMuted}">${yr}</text>`
       );
     }
   }
@@ -98,7 +99,7 @@ export function buildRollingSeriesSvg(
       let d = `M ${getX(s).toFixed(1)},${getY(q95[s]!).toFixed(1)}`;
       for (let i = s + 1; i <= e; i++) d += ` L ${getX(i).toFixed(1)},${getY(q95[i]!).toFixed(1)}`;
       for (let i = e; i >= s; i--) d += ` L ${getX(i).toFixed(1)},${getY(q05[i]!).toFixed(1)}`;
-      elements.push(`<path d="${d} Z" fill="rgba(42, 120, 214, 0.16)" stroke="none" />`);
+      elements.push(`<path d="${d} Z" fill="${T.band90}" stroke="none" />`);
     }
   });
 
@@ -111,7 +112,7 @@ export function buildRollingSeriesSvg(
       let d = `M ${getX(s).toFixed(1)},${getY(q75[s]!).toFixed(1)}`;
       for (let i = s + 1; i <= e; i++) d += ` L ${getX(i).toFixed(1)},${getY(q75[i]!).toFixed(1)}`;
       for (let i = e; i >= s; i--) d += ` L ${getX(i).toFixed(1)},${getY(q25[i]!).toFixed(1)}`;
-      elements.push(`<path d="${d} Z" fill="rgba(42, 120, 214, 0.32)" stroke="none" />`);
+      elements.push(`<path d="${d} Z" fill="${T.band50}" stroke="none" />`);
     }
   });
 
@@ -120,10 +121,10 @@ export function buildRollingSeriesSvg(
     if (e > s) {
       let d = `M ${getX(s).toFixed(1)},${getY(q50[s]!).toFixed(1)}`;
       for (let i = s + 1; i <= e; i++) d += ` L ${getX(i).toFixed(1)},${getY(q50[i]!).toFixed(1)}`;
-      elements.push(`<path d="${d}" fill="none" stroke="#2a78d6" stroke-width="1.8" />`);
+      elements.push(`<path d="${d}" fill="none" stroke="${T.accent}" stroke-width="1.8" />`);
     } else if (e === s) {
       elements.push(
-        `<circle cx="${getX(s).toFixed(1)}" cy="${getY(q50[s]!).toFixed(1)}" r="2.2" fill="#2a78d6" />`
+        `<circle cx="${getX(s).toFixed(1)}" cy="${getY(q50[s]!).toFixed(1)}" r="2.2" fill="${T.accent}" />`
       );
     }
   });
@@ -133,10 +134,10 @@ export function buildRollingSeriesSvg(
     if (e > s) {
       let d = `M ${getX(s).toFixed(1)},${getY(obs[s]!).toFixed(1)}`;
       for (let i = s + 1; i <= e; i++) d += ` L ${getX(i).toFixed(1)},${getY(obs[i]!).toFixed(1)}`;
-      elements.push(`<path d="${d}" fill="none" stroke="#0b0b0b" stroke-width="1.2" />`);
+      elements.push(`<path d="${d}" fill="none" stroke="${T.ink}" stroke-width="1.2" />`);
     } else if (e === s) {
       elements.push(
-        `<circle cx="${getX(s).toFixed(1)}" cy="${getY(obs[s]!).toFixed(1)}" r="2.2" fill="#0b0b0b" />`
+        `<circle cx="${getX(s).toFixed(1)}" cy="${getY(obs[s]!).toFixed(1)}" r="2.2" fill="${T.ink}" />`
       );
     }
   });
@@ -146,7 +147,7 @@ export function buildRollingSeriesSvg(
     if (selIdx >= 0 && selIdx < n) {
       const xSel = getX(selIdx);
       elements.push(
-        `<line x1="${xSel.toFixed(1)}" y1="${padTop}" x2="${xSel.toFixed(1)}" y2="${axisY}" stroke="#eb6834" stroke-width="1.5" stroke-dasharray="4,3" />`
+        `<line x1="${xSel.toFixed(1)}" y1="${padTop}" x2="${xSel.toFixed(1)}" y2="${axisY}" stroke="${T.highlight}" stroke-width="1.5" stroke-dasharray="4,3" />`
       );
     }
   }
@@ -238,19 +239,19 @@ export function buildOriginConeSvg(data: FanData, selectedWeek: number | undefin
   ticks.forEach((v) => {
     const y = getY(v);
     elements.push(
-      `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" stroke="#e1e0d9" stroke-width="1" />`,
-      `<text x="${padLeft - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#898781">${formatNumber(v, 0)}</text>`
+      `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" stroke="${T.grid}" stroke-width="1" />`,
+      `<text x="${padLeft - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="${T.inkMuted}">${formatNumber(v, 0)}</text>`
     );
   });
   elements.push(
-    `<line x1="${padLeft}" y1="${axisY}" x2="${width - padRight}" y2="${axisY}" stroke="#c3c2b7" stroke-width="1" />`
+    `<line x1="${padLeft}" y1="${axisY}" x2="${width - padRight}" y2="${axisY}" stroke="${T.axis}" stroke-width="1" />`
   );
 
   const tickStep = Math.max(4, Math.round(winLen / 5));
   for (let i = winStart; i <= dataEnd; i += tickStep) {
     const x = getX(i);
     elements.push(
-      `<text x="${x.toFixed(1)}" y="${axisY + 15}" text-anchor="middle" font-size="9.5" fill="#898781">${formatEpiweek(data.weeks[i])}</text>`
+      `<text x="${x.toFixed(1)}" y="${axisY + 15}" text-anchor="middle" font-size="9.5" fill="${T.inkMuted}">${formatEpiweek(data.weeks[i])}</text>`
     );
   }
 
@@ -262,7 +263,7 @@ export function buildOriginConeSvg(data: FanData, selectedWeek: number | undefin
     for (let k = conePts.length - 1; k >= 0; k--) {
       d90 += ` L ${getX(conePts[k].idx).toFixed(1)},${getY(conePts[k].q05).toFixed(1)}`;
     }
-    elements.push(`<path d="${d90} Z" fill="rgba(42, 120, 214, 0.18)" />`);
+    elements.push(`<path d="${d90} Z" fill="${T.band90}" />`);
 
     let d50 = `M ${getX(conePts[0].idx).toFixed(1)},${getY(conePts[0].q75).toFixed(1)}`;
     for (let k = 1; k < conePts.length; k++) {
@@ -271,24 +272,24 @@ export function buildOriginConeSvg(data: FanData, selectedWeek: number | undefin
     for (let k = conePts.length - 1; k >= 0; k--) {
       d50 += ` L ${getX(conePts[k].idx).toFixed(1)},${getY(conePts[k].q25).toFixed(1)}`;
     }
-    elements.push(`<path d="${d50} Z" fill="rgba(42, 120, 214, 0.36)" />`);
+    elements.push(`<path d="${d50} Z" fill="${T.band50}" />`);
 
     let dMed = `M ${getX(conePts[0].idx).toFixed(1)},${getY(conePts[0].q50).toFixed(1)}`;
     for (let k = 1; k < conePts.length; k++) {
       dMed += ` L ${getX(conePts[k].idx).toFixed(1)},${getY(conePts[k].q50).toFixed(1)}`;
     }
-    elements.push(`<path d="${dMed}" fill="none" stroke="#2a78d6" stroke-width="2.0" />`);
+    elements.push(`<path d="${dMed}" fill="none" stroke="${T.accent}" stroke-width="2.0" />`);
     conePts.slice(1).forEach((p) => {
       elements.push(
-        `<circle cx="${getX(p.idx).toFixed(1)}" cy="${getY(p.q50).toFixed(1)}" r="2.8" fill="#2a78d6" />`
+        `<circle cx="${getX(p.idx).toFixed(1)}" cy="${getY(p.q50).toFixed(1)}" r="2.8" fill="${T.accent}" />`
       );
     });
   } else {
     const noteX = (getX(originIdx) + (width - padRight)) / 2;
     const noteY = padTop + plotHeight / 2;
     elements.push(
-      `<text x="${noteX.toFixed(1)}" y="${(noteY - 6).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#52514e">Fim do backtest (${formatEpiweek(data.weeks[originIdx])}):</text>`,
-      `<text x="${noteX.toFixed(1)}" y="${(noteY + 8).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#52514e">veja a Previsão ao vivo abaixo</text>`
+      `<text x="${noteX.toFixed(1)}" y="${(noteY - 6).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${T.inkSecondary}">Fim do backtest (${formatEpiweek(data.weeks[originIdx])}):</text>`,
+      `<text x="${noteX.toFixed(1)}" y="${(noteY + 8).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${T.inkSecondary}">veja a Previsão ao vivo abaixo</text>`
     );
   }
 
@@ -299,10 +300,10 @@ export function buildOriginConeSvg(data: FanData, selectedWeek: number | undefin
     pastPath += `${pastPath ? " L" : "M"} ${getX(i).toFixed(1)},${getY(o).toFixed(1)}`;
   }
   if (pastPath) {
-    elements.push(`<path d="${pastPath}" fill="none" stroke="#0b0b0b" stroke-width="1.6" />`);
+    elements.push(`<path d="${pastPath}" fill="none" stroke="${T.ink}" stroke-width="1.6" />`);
   } else if (baseObs != null && Number.isFinite(baseObs)) {
     elements.push(
-      `<circle cx="${getX(originIdx).toFixed(1)}" cy="${getY(baseObs).toFixed(1)}" r="2.6" fill="#0b0b0b" />`
+      `<circle cx="${getX(originIdx).toFixed(1)}" cy="${getY(baseObs).toFixed(1)}" r="2.6" fill="${T.ink}" />`
     );
   }
 
@@ -314,7 +315,7 @@ export function buildOriginConeSvg(data: FanData, selectedWeek: number | undefin
   }
   if (futPath && dataEnd > originIdx) {
     elements.push(
-      `<path d="${futPath}" fill="none" stroke="#0b0b0b" stroke-width="1.3" stroke-dasharray="3,2.5" />`
+      `<path d="${futPath}" fill="none" stroke="${T.ink}" stroke-width="1.3" stroke-dasharray="3,2.5" />`
     );
   }
 
@@ -323,8 +324,8 @@ export function buildOriginConeSvg(data: FanData, selectedWeek: number | undefin
   const labelX = nearRight ? xOrig - 5 : xOrig + 5;
   const labelAnchor = nearRight ? "end" : "start";
   elements.push(
-    `<line x1="${xOrig.toFixed(1)}" y1="${padTop}" x2="${xOrig.toFixed(1)}" y2="${axisY}" stroke="#eb6834" stroke-width="1.4" stroke-dasharray="4,3" />`,
-    `<text x="${labelX.toFixed(1)}" y="${padTop + 10}" text-anchor="${labelAnchor}" font-size="9.5" font-weight="600" fill="#eb6834">emitido em ${formatEpiweek(data.weeks[originIdx])}</text>`
+    `<line x1="${xOrig.toFixed(1)}" y1="${padTop}" x2="${xOrig.toFixed(1)}" y2="${axisY}" stroke="${T.highlight}" stroke-width="1.4" stroke-dasharray="4,3" />`,
+    `<text x="${labelX.toFixed(1)}" y="${padTop + 10}" text-anchor="${labelAnchor}" font-size="9.5" font-weight="600" fill="${T.highlight}">emitido em ${formatEpiweek(data.weeks[originIdx])}</text>`
   );
 
   return elements.join("\n");
@@ -352,24 +353,24 @@ export function buildCalibrationSvg(
     [0.5, 0.6, 0.7, 0.8, 0.9, 1.0].forEach((t) => {
       const y = getY(t);
       elements.push(
-        `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="#e1e0d9" />`,
-        `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#898781">${Math.round(t * 100)}%</text>`
+        `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="${T.grid}" />`,
+        `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="${T.inkMuted}">${Math.round(t * 100)}%</text>`
       );
     });
     nominals.forEach((n) => {
       const x = getX(n);
       elements.push(
-        `<text x="${x.toFixed(1)}" y="${padT + ph + 16}" text-anchor="middle" font-size="10" fill="#898781">${Math.round(n * 100)}%</text>`
+        `<text x="${x.toFixed(1)}" y="${padT + ph + 16}" text-anchor="middle" font-size="10" fill="${T.inkMuted}">${Math.round(n * 100)}%</text>`
       );
     });
     elements.push(
-      `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="#52514e">Cobertura nominal</text>`,
-      `<line x1="${getX(0.45).toFixed(1)}" y1="${getY(0.45).toFixed(1)}" x2="${getX(1.0).toFixed(1)}" y2="${getY(1.0).toFixed(1)}" stroke="#898781" stroke-dasharray="4,3" />`
+      `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="${T.inkSecondary}">Cobertura nominal</text>`,
+      `<line x1="${getX(0.45).toFixed(1)}" y1="${getY(0.45).toFixed(1)}" x2="${getX(1.0).toFixed(1)}" y2="${getY(1.0).toFixed(1)}" stroke="${T.inkMuted}" stroke-dasharray="4,3" />`
     );
 
     const curves = diag.calibration.curves;
     curves.forEach((c) => {
-      const color = MODEL_COLORS[c.model] || "#0b0b0b";
+      const color = MODEL_COLORS[c.model] || T.ink;
       let path = "";
       nominals.forEach((nom, i) => {
         const val = c.overall[i];
@@ -387,7 +388,7 @@ export function buildCalibrationSvg(
     const legendHtml = curves
       .map(
         (c) =>
-          `<span class="legend-chip"><span class="legend-swatch" style="background:${MODEL_COLORS[c.model] || "#0b0b0b"}"></span>${escapeHtml(SHORT_LABELS[c.model] || c.label)}</span>`
+          `<span class="legend-chip"><span class="legend-swatch" style="background:${MODEL_COLORS[c.model] || T.ink}"></span>${escapeHtml(SHORT_LABELS[c.model] || c.label)}</span>`
       )
       .join("");
     return { svg: elements.join("\n"), legendHtml };
@@ -398,7 +399,7 @@ export function buildCalibrationSvg(
   const n = origins.length;
   if (n === 0) {
     return {
-      svg: `<text x="230" y="140" text-anchor="middle" font-size="11" fill="#898781">Série semanal indisponível.</text>`,
+      svg: `<text x="230" y="140" text-anchor="middle" font-size="11" fill="${T.inkMuted}">Série semanal indisponível.</text>`,
       legendHtml: "",
     };
   }
@@ -409,21 +410,21 @@ export function buildCalibrationSvg(
     const y = getY(t);
     const is90 = Math.abs(t - 0.9) < 1e-6;
     elements.push(
-      `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="${is90 ? "#898781" : "#e1e0d9"}" ${is90 ? 'stroke-dasharray="4,3"' : ""} />`,
-      `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#898781">${Math.round(t * 100)}%</text>`
+      `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="${is90 ? T.inkMuted : T.grid}" ${is90 ? 'stroke-dasharray="4,3"' : ""} />`,
+      `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="${T.inkMuted}">${Math.round(t * 100)}%</text>`
     );
   });
   for (let i = 0; i < n; i += 10) {
     elements.push(
-      `<text x="${getX(i).toFixed(1)}" y="${padT + ph + 16}" text-anchor="middle" font-size="9.5" fill="#898781">${formatEpiweek(origins[i])}</text>`
+      `<text x="${getX(i).toFixed(1)}" y="${padT + ph + 16}" text-anchor="middle" font-size="9.5" fill="${T.inkMuted}">${formatEpiweek(origins[i])}</text>`
     );
   }
   elements.push(
-    `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="#52514e">Semana de origem na temporada 2023–24 (h=8)</text>`
+    `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="${T.inkSecondary}">Semana de origem na temporada 2023–24 (h=8)</text>`
   );
 
   wk.series.forEach((s) => {
-    const color = MODEL_COLORS[s.model] || "#0b0b0b";
+    const color = MODEL_COLORS[s.model] || T.ink;
     let path = "";
     s.h8.forEach((v, i) => {
       if (v == null || !Number.isFinite(v)) return;
@@ -437,7 +438,7 @@ export function buildCalibrationSvg(
   const legendHtml = wk.series
     .map(
       (s) =>
-        `<span class="legend-chip"><span class="legend-swatch" style="background:${MODEL_COLORS[s.model] || "#0b0b0b"}"></span>${escapeHtml(SHORT_LABELS[s.model] || s.label)}</span>`
+        `<span class="legend-chip"><span class="legend-swatch" style="background:${MODEL_COLORS[s.model] || T.ink}"></span>${escapeHtml(SHORT_LABELS[s.model] || s.label)}</span>`
     )
     .join("");
   return { svg: elements.join("\n"), legendHtml };
@@ -454,7 +455,7 @@ export function buildPitSvg(
   );
   if (values.length === 0) {
     return {
-      svg: `<text x="230" y="140" text-anchor="middle" font-size="11" fill="#898781">Histograma PIT indisponível.</text>`,
+      svg: `<text x="230" y="140" text-anchor="middle" font-size="11" fill="${T.inkMuted}">Histograma PIT indisponível.</text>`,
       caption: "",
     };
   }
@@ -477,14 +478,14 @@ export function buildPitSvg(
       const y = getY(t);
       const isOne = Math.abs(t - 1.0) < 1e-6;
       elements.push(
-        `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="${isOne ? "#eb6834" : "#e1e0d9"}" stroke-width="${isOne ? "1.4" : "1"}" ${isOne ? 'stroke-dasharray="4,3"' : ""} />`,
-        `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#898781">${formatNumber(t, 1)}</text>`
+        `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="${isOne ? T.highlight : T.grid}" stroke-width="${isOne ? "1.4" : "1"}" ${isOne ? 'stroke-dasharray="4,3"' : ""} />`,
+        `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="${T.inkMuted}">${formatNumber(t, 1)}</text>`
       );
     });
 
   const k = values.length;
   const barW = pw / k;
-  const color = MODEL_COLORS[pitModel] || "#2a78d6";
+  const color = MODEL_COLORS[pitModel] || T.accent;
   values.forEach((v, i) => {
     const x = padL + i * barW + 3;
     const y = getY(v);
@@ -495,13 +496,13 @@ export function buildPitSvg(
     if (i % 2 === 0 || i === k - 1) {
       const edge = (i + 1) / k;
       elements.push(
-        `<text x="${(padL + (i + 1) * barW).toFixed(1)}" y="${padT + ph + 15}" text-anchor="middle" font-size="9.5" fill="#898781">${formatNumber(edge, 1)}</text>`
+        `<text x="${(padL + (i + 1) * barW).toFixed(1)}" y="${padT + ph + 15}" text-anchor="middle" font-size="9.5" fill="${T.inkMuted}">${formatNumber(edge, 1)}</text>`
       );
     }
   });
   elements.push(
-    `<text x="${padL}" y="${padT + ph + 15}" text-anchor="middle" font-size="9.5" fill="#898781">0,0</text>`,
-    `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="#52514e">Quantil realizado u = F(y) (densidade relativa)</text>`
+    `<text x="${padL}" y="${padT + ph + 15}" text-anchor="middle" font-size="9.5" fill="${T.inkMuted}">0,0</text>`,
+    `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="${T.inkSecondary}">Quantil realizado u = F(y) (densidade relativa)</text>`
   );
 
   const tailRight = values[values.length - 1];
@@ -541,27 +542,27 @@ export function buildPrSvg(
   [0, 0.25, 0.5, 0.75, 1.0].forEach((t) => {
     const y = getY(t);
     elements.push(
-      `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="#e1e0d9" />`,
-      `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#898781">${Math.round(t * 100)}%</text>`
+      `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="${T.grid}" />`,
+      `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="${T.inkMuted}">${Math.round(t * 100)}%</text>`
     );
     const x = getX(t);
     elements.push(
-      `<text x="${x.toFixed(1)}" y="${padT + ph + 15}" text-anchor="middle" font-size="10" fill="#898781">${Math.round(t * 100)}%</text>`
+      `<text x="${x.toFixed(1)}" y="${padT + ph + 15}" text-anchor="middle" font-size="10" fill="${T.inkMuted}">${Math.round(t * 100)}%</text>`
     );
   });
 
   const yPrev = getY(prev);
   elements.push(
-    `<line x1="${padL}" y1="${yPrev.toFixed(1)}" x2="${width - padR}" y2="${yPrev.toFixed(1)}" stroke="#898781" stroke-dasharray="4,3" />`,
-    `<text x="${width - padR - 4}" y="${(yPrev - 4).toFixed(1)}" text-anchor="end" font-size="9" fill="#898781">prevalência (${formatPercent(prev, 1)})</text>`,
-    `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="#52514e">Recall (sensibilidade aos surtos &gt; 300/100k)</text>`
+    `<line x1="${padL}" y1="${yPrev.toFixed(1)}" x2="${width - padR}" y2="${yPrev.toFixed(1)}" stroke="${T.inkMuted}" stroke-dasharray="4,3" />`,
+    `<text x="${width - padR - 4}" y="${(yPrev - 4).toFixed(1)}" text-anchor="end" font-size="9" fill="${T.inkMuted}">prevalência (${formatPercent(prev, 1)})</text>`,
+    `<text x="${padL + pw / 2}" y="${height - 4}" text-anchor="middle" font-size="10" fill="${T.inkSecondary}">Recall (sensibilidade aos surtos &gt; 300/100k)</text>`
   );
 
   const legendItems: string[] = [];
   diag.pr_curves.models.forEach((m) => {
     const block = m.horizons[hStr];
     if (!block) return;
-    const color = MODEL_COLORS[m.model] || "#0b0b0b";
+    const color = MODEL_COLORS[m.model] || T.ink;
     let path = "";
     block.precision.forEach((p, idx) => {
       const rVal = recall[idx];

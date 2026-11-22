@@ -1,3 +1,4 @@
+import { T } from "../src/lib/theme";
 import { describe, expect, it } from "vitest";
 import {
   buildCalibrationSvg,
@@ -55,7 +56,7 @@ describe("SVG chart builders", () => {
     const startSvg = buildOriginConeSvg(fan, fan.weeks[0]);
     expect(startSvg).not.toContain("NaN");
     expect(startSvg).toContain("emitido em 2024-01");
-    expect(startSvg).toContain("rgba(42, 120, 214, 0.18)");
+    expect(startSvg).toContain(T.band90);
 
     const midSvg = buildOriginConeSvg(fan, fan.weeks[12]);
     expect(midSvg).not.toContain("NaN");

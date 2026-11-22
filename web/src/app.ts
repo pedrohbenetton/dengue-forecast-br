@@ -1,4 +1,5 @@
 import { feature } from "topojson-client";
+import { gradient, INCIDENCE_STOPS, PROBABILITY_STOPS, RESIDUAL_STOPS, T } from "./lib/theme";
 import maplibregl from "maplibre-gl";
 import {
   SHORT_LABELS,
@@ -187,6 +188,8 @@ export class App {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.live = (await res.json()) as LiveData;
       this.liveIndex = new Map(this.live.geocodes.map((g, i) => [g, i]));
+      const cut = document.getElementById("data-cut-origin");
+      if (cut) cut.textContent = formatEpiweek(this.live.origin);
     } catch {
       this.live = null;
       this.liveIndex.clear();
@@ -437,7 +440,7 @@ export class App {
             {
               id: "background",
               type: "background",
-              paint: { "background-color": "#f4f3ee" },
+              paint: { "background-color": T.mapBackground },
             },
           ],
         },
@@ -555,7 +558,7 @@ export class App {
           type: "line",
           source: "municipios",
           paint: {
-            "line-color": "#ffffff",
+            "line-color": T.outline,
             "line-width": 0.2,
             "line-opacity": 0.4,
           },
@@ -567,7 +570,7 @@ export class App {
           source: "municipios",
           filter: ["==", ["get", "codarea"], ""],
           paint: {
-            "line-color": "#0b0b0b",
+            "line-color": T.ink,
             "line-width": 2.0,
             "line-opacity": 0.95,
           },
@@ -698,75 +701,17 @@ export class App {
   }
 
   private getFillColorExpression(metric: MetricType = this.activeMetric): any {
-    if (metric === "outbreak") {
-      return [
-        "case",
-        ["==", ["feature-state", "v"], null],
-        "#e9e8e2",
-        [
-          "interpolate",
-          ["linear"],
-          ["feature-state", "v"],
-          0,
-          "#f2f5fb",
-          10,
-          "#c6d8f0",
-          30,
-          "#7fa8dc",
-          60,
-          "#3c6fc0",
-          90,
-          "#173a7a",
-        ],
-      ];
-    }
-
-    if (metric === "residual") {
-      return [
-        "case",
-        ["==", ["feature-state", "v"], null],
-        "#e9e8e2",
-        [
-          "interpolate",
-          ["linear"],
-          ["feature-state", "v"],
-          -2.5,
-          "#184a99",
-          -1.0,
-          "#82b3e8",
-          0.0,
-          "#f4f3ee",
-          1.0,
-          "#f59e56",
-          2.2,
-          "#c8402c",
-          3.2,
-          "#7a1020",
-        ],
-      ];
-    }
-
+    const stops =
+      metric === "outbreak"
+        ? PROBABILITY_STOPS
+        : metric === "residual"
+          ? RESIDUAL_STOPS
+          : INCIDENCE_STOPS;
     return [
       "case",
       ["==", ["feature-state", "v"], null],
-      "#e9e8e2",
-      [
-        "interpolate",
-        ["linear"],
-        ["feature-state", "v"],
-        0,
-        "#f7f4e9",
-        10,
-        "#fde3a7",
-        50,
-        "#f9b26b",
-        100,
-        "#ee7a47",
-        300,
-        "#c8402c",
-        1000,
-        "#7a1020",
-      ],
+      T.noData,
+      ["interpolate", ["linear"], ["feature-state", "v"], ...stops.flat()],
     ];
   }
 
@@ -935,7 +880,7 @@ export class App {
     if (this.activeMetric === "outbreak") {
       titleEl.textContent = `Probabilidade de Surto (>300/100k, h=${this.activeHorizon})`;
       scaleContainer.innerHTML = `
-        <div class="legend-bar" style="background: linear-gradient(to right, #f2f5fb, #c6d8f0, #7fa8dc, #3c6fc0, #173a7a);"></div>
+        <div class="legend-bar" style="background: ${gradient(PROBABILITY_STOPS)};"></div>
         <div class="legend-labels">
           <span>0%</span><span>10%</span><span>30%</span><span>60%</span><span>90%+</span>
         </div>
@@ -943,7 +888,7 @@ export class App {
     } else if (this.activeMetric === "residual") {
       titleEl.textContent = `Resíduo log1p(inc) em h=${this.activeHorizon} (vermelho = subestimou)`;
       scaleContainer.innerHTML = `
-        <div class="legend-bar" style="background: linear-gradient(to right, #184a99, #82b3e8, #f4f3ee, #f59e56, #c8402c, #7a1020);"></div>
+        <div class="legend-bar" style="background: ${gradient(RESIDUAL_STOPS)};"></div>
         <div class="legend-labels">
           <span>−2,5 (super)</span><span>0</span><span>+1,5</span><span>+3,0+ (sub)</span>
         </div>
@@ -954,7 +899,7 @@ export class App {
           ? `Previsão Mediana h=${this.activeHorizon} (por 100 mil)`
           : "Casos Observados (por 100 mil)";
       scaleContainer.innerHTML = `
-        <div class="legend-bar" style="background: linear-gradient(to right, #f7f4e9, #fde3a7, #f9b26b, #ee7a47, #c8402c, #7a1020);"></div>
+        <div class="legend-bar" style="background: ${gradient(INCIDENCE_STOPS)};"></div>
         <div class="legend-labels">
           <span>0</span><span>10</span><span>50</span><span>100</span><span>300</span><span>1.000+</span>
         </div>
@@ -1076,7 +1021,7 @@ export class App {
     const svg = document.getElementById("fanchart-svg");
     if (!stateEl) {
       if (svg && message) {
-        svg.innerHTML = `<text x="250" y="120" text-anchor="middle" font-size="12" fill="#898781">${escapeHtml(message)}</text>`;
+        svg.innerHTML = `<text x="250" y="120" text-anchor="middle" font-size="12" fill="${T.inkMuted}">${escapeHtml(message)}</text>`;
       }
       return;
     }
@@ -1373,7 +1318,7 @@ export class App {
     ["calibration-svg", "pit-svg", "pr-svg"].forEach((id) => {
       const svg = document.getElementById(id);
       if (svg) {
-        svg.innerHTML = `<text x="230" y="140" text-anchor="middle" font-size="11" fill="#898781">Diagnósticos indisponíveis no momento.</text>`;
+        svg.innerHTML = `<text x="230" y="140" text-anchor="middle" font-size="11" fill="${T.inkMuted}">Diagnósticos indisponíveis no momento.</text>`;
       }
     });
     document.querySelectorAll<HTMLButtonElement>(".js-retry-diag").forEach((btn) => {
@@ -1471,7 +1416,7 @@ export class App {
             const bg = skillBgColor(rec.rel_wis);
             const covTxt =
               rec.cov90 != null
-                ? ` <small style="color:#52514e">(${formatPercent(rec.cov90, 0)})</small>`
+                ? ` <small style="color:${T.inkSecondary}">(${formatPercent(rec.cov90, 0)})</small>`
                 : "";
             const mainTxt = `${formatNumber(rec.rel_wis, 2)}×`;
             return `<td style="background:${bg}">${isServed ? `<strong>${mainTxt}</strong>` : mainTxt}${covTxt}</td>`;
@@ -1561,9 +1506,9 @@ export class App {
       .map((r) => {
         const biasCls =
           r.bias_cases != null && r.bias_cases > 2
-            ? "color:#d9383a;font-weight:600"
+            ? `color:${T.danger};font-weight:600`
             : r.bias_cases != null && r.bias_cases < -2
-              ? "color:#2a78d6;font-weight:600"
+              ? `color:${T.accent};font-weight:600`
               : "";
         return `
           <tr>

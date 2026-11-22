@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dengue Forecast BR — Previsão Probabilística Municipal</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+    />
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
@@ -13,11 +19,11 @@
       <header class="app-header">
         <div class="header-left">
           <div class="logo-area">
-            <span class="status-indicator live"></span>
             <h1>Dengue Forecast BR</h1>
+            <span class="data-cut">backtest 2022–23 a 2025–26 · previsão atual a partir da SE <span id="data-cut-origin">—</span></span>
           </div>
           <p class="subtitle">
-            Previsão probabilística semanal para os 5.570 municípios brasileiros com calibração conformal (CQR por nível).
+            Previsão probabilística semanal de casos para os 5.570 municípios, com intervalos calibrados.
           </p>
         </div>
         <div class="header-right">
@@ -136,8 +142,10 @@
                   <h3 id="drawer-muni-name">—</h3>
                   <span id="drawer-muni-meta" class="drawer-meta"></span>
                 </div>
-                <button type="button" id="btn-close-drawer" class="btn-close" aria-label="Fechar">
-                  &times;
+                <button type="button" id="btn-close-drawer" class="btn-close" aria-label="Fechar painel">
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  </svg>
                 </button>
               </div>
               <div class="drawer-body">
@@ -198,23 +206,23 @@
             </div>
 
             <!-- Destaques -->
-            <div class="results-grid">
+            <dl class="results-grid">
               <div class="result-highlight-card">
-                <div class="result-number">−14% a −27%</div>
-                <div class="result-title">Redução de WIS (LightGBM + CQR vs baseline)</div>
-                <p>Supera a persistência estratificada em todos os horizontes, faixas de população, regiões e nas 27 UFs.</p>
+                <dt class="result-title">WIS do LightGBM + CQR contra o baseline</dt>
+                <dd class="result-number">−14% a −27%</dd>
+                <dd class="card-note">Em todos os horizontes, faixas de população, regiões e nas 27 UFs.</dd>
               </div>
               <div class="result-highlight-card">
-                <div class="result-number">0,44 vs 0,23</div>
-                <div class="result-title">PR-AUC de alerta de surto em h=8</div>
-                <p>Antecipação de incidência explosiva (&gt; 300/100 mil hab.) com 8 semanas de antecedência.</p>
+                <dt class="result-title">PR-AUC do alerta de surto, h=8</dt>
+                <dd class="result-number">0,44 vs 0,23</dd>
+                <dd class="card-note">Incidência acima de 300/100 mil, 8 semanas antes.</dd>
               </div>
               <div class="result-highlight-card">
-                <div class="result-number">90,8%</div>
-                <div class="result-title">Cobertura 90% em cidades médias-grandes (h=8)</div>
-                <p>O CQR estratificado por nível corrige a subcobertura de 87,8% nos municípios de 100–500 mil hab.</p>
+                <dt class="result-title">Cobertura de 90%, municípios de 100–500 mil, h=8</dt>
+                <dd class="result-number">87,8% → 90,8%</dd>
+                <dd class="card-note">Efeito do CQR estratificado por nível de casos.</dd>
               </div>
-            </div>
+            </dl>
 
             <!-- 1. Ranking Geral de Modelos -->
             <div class="eval-table-card">
@@ -376,32 +384,32 @@
             <!-- 3. Diagnóstico Estrutural e O Que Não Funcionou -->
             <div class="eval-table-card">
               <h3>3. Diagnóstico dos Modos de Falha e Hipóteses Rejeitadas</h3>
-              <div class="failure-modes-grid">
-                <div class="failure-card">
+              <ol class="failure-modes-grid">
+                <li class="failure-card">
                   <h4>Subida explosiva fora da escala do treino (2024)</h4>
                   <p>
                     Mesmo prevendo variações em escala log (<code>Δ log1p</code>), árvores e redes treinadas até 2022–23 subestimam as primeiras semanas de aceleração de 2024 (10,5 milhões de notificações, 2,7× o recorde anterior). Na pior semana, a cobertura de 90% em h=8 cai perto de 75%.
                   </p>
-                </div>
-                <div class="failure-card">
+                </li>
+                <li class="failure-card">
                   <h4>Atraso de feedback quebra o ACI em h=8</h4>
                   <p>
                     A inferência conformal adaptativa (ACI) recebe o erro de <code>h=8</code> com 8 semanas de atraso: o <code>α_eff</code> continua caindo quando o pico já passou, inflando os intervalos na descida e piorando o WIS de 2023–24 em h=8 de 15,8 para 18,8.
                   </p>
-                </div>
-                <div class="failure-card">
+                </li>
+                <li class="failure-card">
                   <h4>Convolução espacial em grafo (ST-GNN) não paga</h4>
                   <p>
                     Na Fase 4, zerar a matriz de adjacência (<code>gnn_nograph</code>) igualou ou superou a ST-GNN com contiguidade municipal IBGE em todos os horizontes (WIS h=8: 5,85 vs 5,92). As features tabulares de vizinhança e sazonalidade já capturam o sinal espacial útil.
                   </p>
-                </div>
-                <div class="failure-card">
+                </li>
+                <li class="failure-card">
                   <h4>Anomalia climática e proxies cegos a sorotipo</h4>
                   <p>
                     Temperatura/umidade defasadas não melhoram o WIS além do ciclo sazonal fixo. Na Fase 6, proxies macro de calmaria não antecipam a entrada heteróloga do DENV-3 em 2023–24 (confundem DENV-1/2 prévio com imunidade), ajudando apenas na retração pós-epidêmica de 2025–26 (−2,9% em h=8).
                   </p>
-                </div>
-              </div>
+                </li>
+              </ol>
             </div>
           </div>
         </section>
