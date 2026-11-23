@@ -1,0 +1,162 @@
+{
+ "rows": [
+  {
+   "model": "naive",
+   "label": "Ingênuo (última semana)",
+   "wis": {
+    "1": 2.6554,
+    "2": 3.679,
+    "4": 5.8598,
+    "8": 10.5258
+   },
+   "rel_wis_8": 1.2227,
+   "cov90": 0.8743,
+   "pr_auc_8": 0.2184
+  },
+  {
+   "model": "naive_level",
+   "label": "Ingênuo por nível (baseline)",
+   "wis": {
+    "1": 2.1028,
+    "2": 3.1698,
+    "4": 5.1501,
+    "8": 8.6087
+   },
+   "rel_wis_8": 1.0,
+   "cov90": 0.93,
+   "pr_auc_8": 0.2345
+  },
+  {
+   "model": "seasonal",
+   "label": "Sazonal (mesma SE do ano anterior)",
+   "wis": {
+    "1": 15.6632,
+    "2": 15.6632,
+    "4": 15.6632,
+    "8": 15.6632
+   },
+   "rel_wis_8": 1.8195,
+   "cov90": 0.8415,
+   "pr_auc_8": 0.0859
+  },
+  {
+   "model": "climatology",
+   "label": "Média histórica por SE",
+   "wis": {
+    "1": 10.6486,
+    "2": 10.6486,
+    "4": 10.6486,
+    "8": 10.6486
+   },
+   "rel_wis_8": 1.237,
+   "cov90": 0.8483,
+   "pr_auc_8": 0.0995
+  },
+  {
+   "model": "lgbm",
+   "label": "LightGBM global quantílico",
+   "wis": {
+    "1": 1.7994,
+    "2": 2.527,
+    "4": 3.8438,
+    "8": 6.4329
+   },
+   "rel_wis_8": 0.7473,
+   "cov90": 0.9308,
+   "pr_auc_8": 0.4338
+  },
+  {
+   "model": "lgbm_cqr",
+   "label": "LightGBM + CQR por horizonte",
+   "wis": {
+    "1": 1.7994,
+    "2": 2.527,
+    "4": 3.844,
+    "8": 6.4476
+   },
+   "rel_wis_8": 0.749,
+   "cov90": 0.9321,
+   "pr_auc_8": 0.434
+  },
+  {
+   "model": "lgbm_cqr_level",
+   "label": "LightGBM + CQR por nível (servido)",
+   "wis": {
+    "1": 1.8019,
+    "2": 2.5277,
+    "4": 3.8025,
+    "8": 6.296
+   },
+   "rel_wis_8": 0.7314,
+   "cov90": 0.9352,
+   "pr_auc_8": 0.4399
+  },
+  {
+   "model": "lgbm_aci",
+   "label": "LightGBM + ACI por horizonte",
+   "wis": {
+    "1": 1.8011,
+    "2": 2.528,
+    "4": 3.8421,
+    "8": 7.1674
+   },
+   "rel_wis_8": 0.8326,
+   "cov90": 0.9325,
+   "pr_auc_8": 0.4358
+  },
+  {
+   "model": "lgbm_aci_level",
+   "label": "LightGBM + ACI por nível",
+   "wis": {
+    "1": 1.7952,
+    "2": 2.5035,
+    "4": 3.9496,
+    "8": 6.5167
+   },
+   "rel_wis_8": 0.757,
+   "cov90": 0.9354,
+   "pr_auc_8": 0.4401
+  },
+  {
+   "model": "lgbm_immunity",
+   "label": "LightGBM + dívida imunológica",
+   "wis": {
+    "1": 1.8032,
+    "2": 2.5306,
+    "4": 3.8424,
+    "8": 6.4693
+   },
+   "rel_wis_8": 0.7515,
+   "cov90": 0.9304,
+   "pr_auc_8": 0.4259
+  },
+  {
+   "model": "gnn",
+   "label": "Rede em grafo (GNN)",
+   "wis": {
+    "1": 1.823,
+    "2": 2.4916,
+    "4": 3.7485,
+    "8": 5.9247
+   },
+   "rel_wis_8": 0.6882,
+   "cov90": 0.9279,
+   "pr_auc_8": 0.4666
+  },
+  {
+   "model": "gnn_nograph",
+   "label": "Mesma rede, sem grafo",
+   "wis": {
+    "1": 1.7863,
+    "2": 2.4738,
+    "4": 3.6741,
+    "8": 5.8461
+   },
+   "rel_wis_8": 0.6791,
+   "cov90": 0.9285,
+   "pr_auc_8": 0.4585
+  }
+ ],
+ "reference": "naive_level",
+ "source": "backtest 2022-23 a 2025-26"
+}
